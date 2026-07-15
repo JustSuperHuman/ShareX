@@ -1222,6 +1222,8 @@ namespace ShareX
             VideoEditorServices services = new(
                 (filePath, cancellationToken) => ProbeVideoForEditorAsync(ffmpegPath, filePath, cancellationToken),
                 (filePath, position, cancellationToken) => GetVideoEditorPreviewAsync(ffmpegPath, filePath, position, cancellationToken),
+                (filePath, start, end, fps, maxWidth, cancellationToken) =>
+                    GetVideoEditorPreviewSequenceAsync(ffmpegPath, filePath, start, end, fps, maxWidth, cancellationToken),
                 (request, progress, cancellationToken) => ExportVideoEditorAsync(ffmpegPath, request, progress, cancellationToken));
 
             ToolsIntegration.ShowVideoEditorWindow(
@@ -1283,6 +1285,78 @@ namespace ShareX
             }, cancellationToken);
         }
 
+        private static Task<VideoEditorPreviewSequence> GetVideoEditorPreviewSequenceAsync(
+            string ffmpegPath,
+            string filePath,
+            TimeSpan start,
+            TimeSpan end,
+            double fps,
+            int maxWidth,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                double duration = Math.Max(0, (end - start).TotalSeconds);
+                if (duration <= 0)
+                {
+                    return null;
+                }
+
+                string folder = Path.Combine(Path.GetTempPath(), $"ShareX-video-playback-{Guid.NewGuid():N}");
+
+                try
+                {
+                    Directory.CreateDirectory(folder);
+                    string pattern = Path.Combine(folder, "frame-%05d.jpg");
+                    string ss = Math.Max(0, start.TotalSeconds).ToString("0.###", CultureInfo.InvariantCulture);
+                    string t = duration.ToString("0.###", CultureInfo.InvariantCulture);
+                    string fpsText = fps.ToString("0.###", CultureInfo.InvariantCulture);
+
+                    using FFmpegCLIManager ffmpeg = new FFmpegCLIManager(ffmpegPath) { ShowError = false };
+                    using CancellationTokenRegistration registration = cancellationToken.Register(ffmpeg.Close);
+
+                    string arguments =
+                        $"-ss {ss} -i \"{filePath}\" -t {t} " +
+                        $"-vf \"fps={fpsText},scale={maxWidth}:-2:flags=bilinear\" -q:v 5 -y \"{pattern}\"";
+                    bool succeeded = ffmpeg.Run(arguments);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (!succeeded)
+                    {
+                        return null;
+                    }
+
+                    List<byte[]> frames = new List<byte[]>();
+                    foreach (string file in Directory.GetFiles(folder, "frame-*.jpg").OrderBy(f => f, StringComparer.Ordinal))
+                    {
+                        frames.Add(File.ReadAllBytes(file));
+                    }
+
+                    return frames.Count > 0 ? new VideoEditorPreviewSequence(frames, fps, start) : null;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    return null;
+                }
+                finally
+                {
+                    try
+                    {
+                        if (Directory.Exists(folder)) Directory.Delete(folder, true);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }, cancellationToken);
+        }
+
         private static Task<VideoEditorExportResult> ExportVideoEditorAsync(
             string ffmpegPath,
             VideoEditorExportRequest request,
@@ -1301,23 +1375,37 @@ namespace ShareX
 
                 ffmpeg.EncodeProgressChanged += percentage => progress.Report(percentage);
                 using CancellationTokenRegistration registration = cancellationToken.Register(ffmpeg.Close);
-                bool succeeded = ffmpeg.Run(request.Arguments);
-                bool wasCancelled = cancellationToken.IsCancellationRequested || ffmpeg.StopRequested;
 
-                if (succeeded && !wasCancelled && request.AutoOpenFolder)
+                try
                 {
-                    FileHelpers.OpenFolderWithFile(request.OutputFilePath);
-                }
+                    bool succeeded = ffmpeg.Run(request.Arguments);
+                    bool wasCancelled = cancellationToken.IsCancellationRequested || ffmpeg.StopRequested;
 
-                string error = null;
-                if (!succeeded && !wasCancelled)
+                    if (succeeded && !wasCancelled && request.AutoOpenFolder)
+                    {
+                        FileHelpers.OpenFolderWithFile(request.OutputFilePath);
+                    }
+
+                    string error = null;
+                    if (!succeeded && !wasCancelled)
+                    {
+                        error = ffmpeg.Output.ToString()
+                            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                            .LastOrDefault();
+                    }
+
+                    return new VideoEditorExportResult(succeeded, wasCancelled, error);
+                }
+                finally
                 {
-                    error = ffmpeg.Output.ToString()
-                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                        .LastOrDefault();
+                    if (request.TempFiles != null)
+                    {
+                        foreach (string tempFile in request.TempFiles)
+                        {
+                            FileHelpers.DeleteFile(tempFile);
+                        }
+                    }
                 }
-
-                return new VideoEditorExportResult(succeeded, wasCancelled, error);
             }, cancellationToken);
         }
 

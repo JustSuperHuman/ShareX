@@ -28,12 +28,24 @@ public sealed record VideoEditorExportRequest(
     string Arguments,
     string OutputFilePath,
     TimeSpan Duration,
-    bool AutoOpenFolder);
+    bool AutoOpenFolder,
+    IReadOnlyList<string>? TempFiles = null);
 
 public sealed record VideoEditorExportResult(bool Succeeded, bool WasCancelled, string? ErrorMessage = null);
 
+// A decoded, downscaled run of frames used for smooth in-editor playback. Frames are evenly spaced
+// starting at Start with 1/Fps between them.
+public sealed record VideoEditorPreviewSequence(IReadOnlyList<byte[]> Frames, double Fps, TimeSpan Start);
+
 public delegate Task<VideoEditorMediaInfo> VideoEditorProbeHandler(string filePath, CancellationToken cancellationToken);
 public delegate Task<byte[]?> VideoEditorPreviewHandler(string filePath, TimeSpan position, CancellationToken cancellationToken);
+public delegate Task<VideoEditorPreviewSequence?> VideoEditorSequenceHandler(
+    string filePath,
+    TimeSpan start,
+    TimeSpan end,
+    double fps,
+    int maxWidth,
+    CancellationToken cancellationToken);
 public delegate Task<VideoEditorExportResult> VideoEditorExportHandler(
     VideoEditorExportRequest request,
     IProgress<double> progress,
@@ -42,4 +54,5 @@ public delegate Task<VideoEditorExportResult> VideoEditorExportHandler(
 public sealed record VideoEditorServices(
     VideoEditorProbeHandler Probe,
     VideoEditorPreviewHandler GetPreview,
+    VideoEditorSequenceHandler GetPreviewSequence,
     VideoEditorExportHandler Export);

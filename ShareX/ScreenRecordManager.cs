@@ -40,6 +40,8 @@ namespace ShareX
 
         private static ScreenRecorder screenRecorder;
         private static ScreenRecordForm recordForm;
+        private static MouseMotionRecorder mouseMotionRecorder;
+        private static ScreenRecordingMotionData pendingMotionData;
 
         public static void StartStopRecording(ScreenRecordOutput outputType, ScreenRecordStartMethod startMethod, TaskSettings taskSettings)
         {
@@ -280,7 +282,28 @@ namespace ShareX
                             screenRecorder = new ScreenRecorder(ScreenRecordOutput.FFmpeg, options, screenshot, captureRectangle);
                             screenRecorder.RecordingStarted += ScreenRecorder_RecordingStarted;
                             screenRecorder.EncodingProgressChanged += ScreenRecorder_EncodingProgressChanged;
+
+                            bool trackMouseMotion = taskSettings.CaptureSettings.ScreenRecordTrackMouseMotion &&
+                                outputType != ScreenRecordOutput.GIF && !taskSettings.CaptureSettings.FFmpegOptions.IsAnimatedImage;
+
+                            if (trackMouseMotion)
+                            {
+                                mouseMotionRecorder?.Dispose();
+                                mouseMotionRecorder = new MouseMotionRecorder(captureRectangle, fps > 0 ? Math.Max(fps, 30) : 60);
+                            }
+
                             screenRecorder.StartRecording();
+
+                            if (mouseMotionRecorder != null)
+                            {
+                                mouseMotionRecorder.Stop();
+                                // Pause/resume produces a concatenated recording whose timeline no longer lines up with
+                                // a single motion track, so only keep the track for a straight single-segment recording.
+                                pendingMotionData = File.Exists(concatPath) ? null : mouseMotionRecorder.GetData();
+                                mouseMotionRecorder.Dispose();
+                                mouseMotionRecorder = null;
+                            }
+
                             recordForm.ChangeState(ScreenRecordState.RecordingEnd);
 
                             if (recordForm.Status == ScreenRecordingStatus.Aborted)
@@ -374,6 +397,8 @@ namespace ShareX
                         }
                     }
 
+                    SaveMotionData(path);
+
                     ApplyCompletionActions(taskSettings);
                     ApplyQuickTaskAction(taskSettings, action);
 
@@ -389,6 +414,22 @@ namespace ShareX
             finally
             {
                 IsRecording = false;
+                pendingMotionData = null;
+            }
+        }
+
+        private static void SaveMotionData(string path)
+        {
+            if (pendingMotionData != null && pendingMotionData.HasSamples && !string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                try
+                {
+                    pendingMotionData.Save(path);
+                }
+                catch (Exception e)
+                {
+                    DebugHelper.WriteException(e);
+                }
             }
         }
 
@@ -428,6 +469,7 @@ namespace ShareX
 
         private static void ScreenRecorder_RecordingStarted()
         {
+            mouseMotionRecorder?.Start();
             recordForm.ChangeState(ScreenRecordState.AfterRecordingStart);
         }
 

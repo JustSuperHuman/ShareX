@@ -35,6 +35,11 @@ public sealed class VideoCropControl : Control
     public static readonly StyledProperty<Rect> CropRectProperty =
         AvaloniaProperty.Register<VideoCropControl, Rect>(nameof(CropRect), defaultBindingMode: BindingMode.TwoWay);
 
+    // When set to a non-empty rectangle (in source pixels), the control renders that region scaled to
+    // fill the view — a live WYSIWYG preview of the auto-zoom camera instead of the crop editor.
+    public static readonly StyledProperty<Rect> CameraRectProperty =
+        AvaloniaProperty.Register<VideoCropControl, Rect>(nameof(CameraRect));
+
     private const double HandleRadius = 6;
     private const double MinimumCropPixels = 16;
     private CropHandle _activeHandle;
@@ -43,7 +48,7 @@ public sealed class VideoCropControl : Control
 
     static VideoCropControl()
     {
-        AffectsRender<VideoCropControl>(PreviewImageProperty, SourceWidthProperty, SourceHeightProperty, CropRectProperty);
+        AffectsRender<VideoCropControl>(PreviewImageProperty, SourceWidthProperty, SourceHeightProperty, CropRectProperty, CameraRectProperty);
     }
 
     public VideoCropControl()
@@ -56,6 +61,9 @@ public sealed class VideoCropControl : Control
     public int SourceWidth { get => GetValue(SourceWidthProperty); set => SetValue(SourceWidthProperty, value); }
     public int SourceHeight { get => GetValue(SourceHeightProperty); set => SetValue(SourceHeightProperty, value); }
     public Rect CropRect { get => GetValue(CropRectProperty); set => SetValue(CropRectProperty, value); }
+    public Rect CameraRect { get => GetValue(CameraRectProperty); set => SetValue(CameraRectProperty, value); }
+
+    private bool CameraActive => CameraRect.Width > 0 && CameraRect.Height > 0;
 
     public override void Render(DrawingContext context)
     {
@@ -64,6 +72,12 @@ public sealed class VideoCropControl : Control
 
         if (PreviewImage == null || SourceWidth <= 0 || SourceHeight <= 0)
         {
+            return;
+        }
+
+        if (CameraActive)
+        {
+            RenderCameraPreview(context);
             return;
         }
 
@@ -93,7 +107,7 @@ public sealed class VideoCropControl : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (PreviewImage == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (PreviewImage == null || CameraActive || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             return;
         }
@@ -115,6 +129,7 @@ public sealed class VideoCropControl : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (CameraActive) return;
         Point point = e.GetPosition(this);
         Rect cropDisplay = SourceToDisplay(NormalizeCrop(CropRect), GetImageBounds());
         CropHandle hover = _activeHandle == CropHandle.None ? HitTestHandle(point, cropDisplay) : _activeHandle;
@@ -184,6 +199,33 @@ public sealed class VideoCropControl : Control
         double x = Math.Clamp(crop.X, 0, Math.Max(0, SourceWidth - width));
         double y = Math.Clamp(crop.Y, 0, Math.Max(0, SourceHeight - height));
         return new Rect(Math.Round(x), Math.Round(y), Math.Round(width), Math.Round(height));
+    }
+
+    private void RenderCameraPreview(DrawingContext context)
+    {
+        if (PreviewImage == null) return;
+
+        // Map the camera window (source pixels) into the preview bitmap's own pixel space, which may be
+        // downscaled relative to the source during playback.
+        double bitmapScaleX = PreviewImage.PixelSize.Width / (double)SourceWidth;
+        double bitmapScaleY = PreviewImage.PixelSize.Height / (double)SourceHeight;
+        Rect sourceRect = new(
+            CameraRect.X * bitmapScaleX,
+            CameraRect.Y * bitmapScaleY,
+            CameraRect.Width * bitmapScaleX,
+            CameraRect.Height * bitmapScaleY);
+
+        double aspect = CameraRect.Width / CameraRect.Height;
+        double width = Bounds.Width;
+        double height = width / aspect;
+        if (height > Bounds.Height)
+        {
+            height = Bounds.Height;
+            width = height * aspect;
+        }
+        Rect dest = new((Bounds.Width - width) / 2, (Bounds.Height - height) / 2, width, height);
+
+        context.DrawImage(PreviewImage, sourceRect, dest);
     }
 
     private Rect GetImageBounds()

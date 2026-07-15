@@ -30,6 +30,7 @@ public partial class VideoEditorWindow : Window
             new VideoEditorServices(
                 (_, _) => Task.FromResult(new VideoEditorMediaInfo(TimeSpan.Zero, 0, 0, 0, "FFmpeg is unavailable.")),
                 (_, _, _) => Task.FromResult<byte[]?>(null),
+                (_, _, _, _, _, _) => Task.FromResult<VideoEditorPreviewSequence?>(null),
                 (_, _, _) => Task.FromResult(new VideoEditorExportResult(false, false, "FFmpeg is unavailable."))))
     {
     }

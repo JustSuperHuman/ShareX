@@ -20,10 +20,15 @@ using Avalonia.Media;
 
 namespace ShareX.Tools.Controls;
 
+public readonly record struct TimelineZoomRegion(double Start, double End);
+
 public sealed class VideoTimelineControl : Control
 {
     public static readonly StyledProperty<double> DurationProperty =
         AvaloniaProperty.Register<VideoTimelineControl, double>(nameof(Duration), 1d);
+
+    public static readonly StyledProperty<IReadOnlyList<TimelineZoomRegion>?> ZoomRegionsProperty =
+        AvaloniaProperty.Register<VideoTimelineControl, IReadOnlyList<TimelineZoomRegion>?>(nameof(ZoomRegions));
 
     public static readonly StyledProperty<double> InPointProperty =
         AvaloniaProperty.Register<VideoTimelineControl, double>(nameof(InPoint), 0d, defaultBindingMode: BindingMode.TwoWay);
@@ -41,7 +46,7 @@ public sealed class VideoTimelineControl : Control
 
     static VideoTimelineControl()
     {
-        AffectsRender<VideoTimelineControl>(DurationProperty, InPointProperty, OutPointProperty, PositionProperty);
+        AffectsRender<VideoTimelineControl>(DurationProperty, InPointProperty, OutPointProperty, PositionProperty, ZoomRegionsProperty);
     }
 
     public VideoTimelineControl()
@@ -52,6 +57,7 @@ public sealed class VideoTimelineControl : Control
     }
 
     public double Duration { get => GetValue(DurationProperty); set => SetValue(DurationProperty, value); }
+    public IReadOnlyList<TimelineZoomRegion>? ZoomRegions { get => GetValue(ZoomRegionsProperty); set => SetValue(ZoomRegionsProperty, value); }
     public double InPoint { get => GetValue(InPointProperty); set => SetValue(InPointProperty, value); }
     public double OutPoint { get => GetValue(OutPointProperty); set => SetValue(OutPointProperty, value); }
     public double Position { get => GetValue(PositionProperty); set => SetValue(PositionProperty, value); }
@@ -72,6 +78,21 @@ public sealed class VideoTimelineControl : Control
         double outX = TimeToX(OutPoint, track);
         Rect selected = new(inX, track.Top, Math.Max(0, outX - inX), track.Height);
         context.DrawRectangle(selection, null, selected, 4, 4);
+
+        IReadOnlyList<TimelineZoomRegion>? zoomRegions = ZoomRegions;
+        if (zoomRegions != null && zoomRegions.Count > 0)
+        {
+            IBrush zoomBrush = new SolidColorBrush(Color.FromArgb(210, 255, 202, 87));
+            double barHeight = 4;
+            double barTop = track.Top - barHeight - 3;
+            foreach (TimelineZoomRegion region in zoomRegions)
+            {
+                double startX = TimeToX(region.Start, track);
+                double endX = TimeToX(region.End, track);
+                Rect bar = new(startX, barTop, Math.Max(2, endX - startX), barHeight);
+                context.DrawRectangle(zoomBrush, null, bar, 2, 2);
+            }
+        }
 
         DrawHandle(context, inX, track, selection, foreground);
         DrawHandle(context, outX, track, selection, foreground);

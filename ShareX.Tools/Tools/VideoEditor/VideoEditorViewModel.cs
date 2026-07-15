@@ -14,8 +14,12 @@
 
 using Avalonia;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ShareX.HelpersLib;
+using ShareX.Tools.Controls;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ShareX.Tools;
@@ -34,6 +38,11 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         new("9:16", 9d / 16d)
     ];
 
+    public static IReadOnlyList<double> PlaybackSpeeds { get; } = [0.5, 1, 1.5, 2];
+
+    private const double PlaybackFrameRate = 15;
+    private const int PlaybackMaxWidth = 960;
+
     private readonly VideoEditorOptions _options;
     private readonly VideoEditorServices _services;
     private CancellationTokenSource? _operationCancellation;
@@ -41,6 +50,19 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     private bool _adjustingTime;
     private bool _applyingCropPreset;
     private bool _disposed;
+
+    private readonly DispatcherTimer _playbackTimer;
+    private readonly Stopwatch _playbackClock = new();
+    private double _playbackAnchor;
+    private byte[][]? _playbackFrames;
+    private double _playbackSequenceFps;
+    private double _playbackSequenceStart;
+    private double _playbackSequenceEnd = -1;
+    private int _lastShownFrameIndex = -1;
+    private CancellationTokenSource? _sequenceCancellation;
+
+    private ScreenRecordingMotionData? _motionData;
+    private AutoZoomPlan _autoZoomPlan = AutoZoomPlan.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InputFileDisplay))]
@@ -118,12 +140,48 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool _autoOpenFolder;
 
+    [ObservableProperty]
+    private bool _isPlaying;
+
+    [ObservableProperty]
+    private double _selectedPlaybackSpeed = 1;
+
+    [ObservableProperty]
+    private bool _isCropEditable = true;
+
+    [ObservableProperty]
+    private Rect _cameraRect;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoZoomAvailable))]
+    private bool _hasMotionData;
+
+    [ObservableProperty]
+    private bool _autoZoomEnabled;
+
+    [ObservableProperty]
+    private double _autoZoomAmount = 1.8;
+
+    [ObservableProperty]
+    private double _autoZoomSmoothness = 0.5;
+
+    [ObservableProperty]
+    private string _autoZoomStatusText = "";
+
+    [ObservableProperty]
+    private IReadOnlyList<TimelineZoomRegion> _zoomRegions = [];
+
     public VideoEditorViewModel(VideoEditorOptions options, VideoEditorServices services, string? inputFilePath = null)
     {
         _options = options;
         _services = services;
         _autoOpenFolder = options.AutoOpenFolder;
+        _autoZoomAmount = options.AutoZoomAmount;
+        _autoZoomSmoothness = options.AutoZoomSmoothness;
         InputFilePath = inputFilePath ?? string.Empty;
+
+        _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0 / PlaybackFrameRate) };
+        _playbackTimer.Tick += OnPlaybackTick;
     }
 
     public Func<string, Task<string?>>? SelectInputFileRequested { get; set; }
@@ -132,6 +190,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     public bool IsIdle => !IsBusy;
     public bool CanExport => IsIdle && Duration > 0 && OutPoint > InPoint && SourceWidth > 0 && SourceHeight > 0;
     public bool HasNoPreview => PreviewImage == null;
+    public bool AutoZoomAvailable => HasMotionData;
     public string InputFileDisplay => string.IsNullOrWhiteSpace(InputFilePath) ? "No file selected" : InputFilePath;
     public string SourceInfoText => SourceWidth <= 0 ? string.Empty : $"{SourceWidth} × {SourceHeight}  •  {FramesPerSecond:0.##} fps";
     public string DurationText => FormatTime(Duration);
@@ -204,7 +263,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     {
         if (!File.Exists(filePath) || !IsIdle) return;
 
+        StopPlayback();
         CancelPreview();
+        InvalidatePlaybackSequence();
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
         _operationCancellation = new CancellationTokenSource();
@@ -232,7 +293,13 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
             ApplyCropPreset(CropAspects[1]);
             OutputFolderPath = Path.GetDirectoryName(filePath) ?? string.Empty;
             OutputFileName = $"{Path.GetFileNameWithoutExtension(filePath)}-edited.mp4";
-            StatusText = "Drag the timeline handles to trim, and drag the frame handles to crop.";
+
+            LoadMotionData(filePath);
+
+            StatusText = HasMotionData
+                ? "Motion track found — enable Auto-zoom to make it cinematic."
+                : "Drag the timeline handles to trim, and drag the frame handles to crop.";
+
             await LoadPreviewAsync(0, immediate: true);
         }
         catch (OperationCanceledException)
@@ -246,6 +313,14 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    private void LoadMotionData(string filePath)
+    {
+        AutoZoomEnabled = false;
+        _motionData = ScreenRecordingMotionData.Load(filePath);
+        HasMotionData = _motionData is { HasSamples: true };
+        RebuildAutoZoomPlan();
     }
 
     [RelayCommand]
@@ -269,18 +344,163 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void StepBackward() => PreviewPosition = Math.Max(InPoint, PreviewPosition - GetFrameStep());
+    private void StepBackward()
+    {
+        StopPlayback();
+        PreviewPosition = Math.Max(InPoint, PreviewPosition - GetFrameStep());
+    }
 
     [RelayCommand]
-    private void StepForward() => PreviewPosition = Math.Min(OutPoint, PreviewPosition + GetFrameStep());
+    private void StepForward()
+    {
+        StopPlayback();
+        PreviewPosition = Math.Min(OutPoint, PreviewPosition + GetFrameStep());
+    }
 
     [RelayCommand]
     private void ResetCrop() => ApplyCropPreset(CropAspects[1]);
 
     [RelayCommand]
+    private async Task TogglePlaybackAsync()
+    {
+        if (IsPlaying)
+        {
+            StopPlayback();
+            await LoadPreviewAsync(PreviewPosition, immediate: true);
+        }
+        else
+        {
+            await StartPlaybackAsync();
+        }
+    }
+
+    private async Task StartPlaybackAsync()
+    {
+        if (SourceWidth <= 0 || Duration <= 0) return;
+
+        if (!IsPlaybackSequenceValid())
+        {
+            IsBusy = true;
+            StatusText = "Preparing smooth preview...";
+            try
+            {
+                await BuildPlaybackSequenceAsync();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+            if (!IsPlaybackSequenceValid())
+            {
+                StatusText = "Could not prepare preview playback.";
+                return;
+            }
+        }
+
+        if (PreviewPosition >= OutPoint - 0.01) PreviewPosition = InPoint;
+
+        _playbackAnchor = PreviewPosition;
+        _playbackClock.Restart();
+        _lastShownFrameIndex = -1;
+        IsPlaying = true;
+        StatusText = "Playing preview.";
+        _playbackTimer.Start();
+        ShowPlaybackFrame(PreviewPosition);
+    }
+
+    private void StopPlayback()
+    {
+        if (!IsPlaying && !_playbackTimer.IsEnabled) return;
+        _playbackTimer.Stop();
+        _playbackClock.Stop();
+        IsPlaying = false;
+    }
+
+    private void OnPlaybackTick(object? sender, EventArgs e)
+    {
+        double elapsed = _playbackClock.Elapsed.TotalSeconds * SelectedPlaybackSpeed;
+        double position = _playbackAnchor + elapsed;
+
+        if (position >= OutPoint)
+        {
+            // Loop within the selection for an easy, continuous preview.
+            position = InPoint;
+            _playbackAnchor = InPoint;
+            _playbackClock.Restart();
+        }
+
+        _adjustingTime = true;
+        PreviewPosition = Math.Clamp(position, InPoint, OutPoint);
+        _adjustingTime = false;
+
+        ShowPlaybackFrame(PreviewPosition);
+        UpdateCameraRect();
+    }
+
+    private void ShowPlaybackFrame(double time)
+    {
+        if (_playbackFrames == null || _playbackFrames.Length == 0) return;
+
+        int index = (int)Math.Round((time - _playbackSequenceStart) * _playbackSequenceFps);
+        index = Math.Clamp(index, 0, _playbackFrames.Length - 1);
+        if (index == _lastShownFrameIndex) return;
+
+        _lastShownFrameIndex = index;
+        SetPreviewFromBytes(_playbackFrames[index]);
+    }
+
+    private async Task BuildPlaybackSequenceAsync()
+    {
+        _sequenceCancellation?.Cancel();
+        _sequenceCancellation?.Dispose();
+        _sequenceCancellation = new CancellationTokenSource();
+
+        double start = InPoint;
+        double end = OutPoint;
+        double span = Math.Max(0.1, end - start);
+        double fps = PlaybackFrameRate;
+        // Keep the frame count bounded for long selections.
+        double maxFrames = 900;
+        if (span * fps > maxFrames) fps = Math.Max(4, maxFrames / span);
+
+        try
+        {
+            VideoEditorPreviewSequence? sequence = await _services.GetPreviewSequence(
+                InputFilePath, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(end), fps, PlaybackMaxWidth, _sequenceCancellation.Token);
+
+            if (sequence == null || sequence.Frames.Count == 0) return;
+
+            _playbackFrames = [.. sequence.Frames];
+            _playbackSequenceFps = sequence.Fps;
+            _playbackSequenceStart = sequence.Start.TotalSeconds;
+            _playbackSequenceEnd = end;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private bool IsPlaybackSequenceValid()
+    {
+        return _playbackFrames is { Length: > 0 } &&
+            Math.Abs(_playbackSequenceStart - InPoint) < 0.02 &&
+            Math.Abs(_playbackSequenceEnd - OutPoint) < 0.02;
+    }
+
+    private void InvalidatePlaybackSequence()
+    {
+        _sequenceCancellation?.Cancel();
+        _playbackFrames = null;
+        _playbackSequenceEnd = -1;
+        _lastShownFrameIndex = -1;
+    }
+
+    [RelayCommand]
     private async Task ExportAsync()
     {
         if (!CanExport) return;
+        StopPlayback();
+
         if (string.IsNullOrWhiteSpace(OutputFolderPath) || !Directory.Exists(OutputFolderPath))
         {
             StatusText = "Select an existing output folder.";
@@ -310,13 +530,16 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         try
         {
             TimeSpan selectionDuration = TimeSpan.FromSeconds(OutPoint - InPoint);
-            VideoEditorExportRequest request = new(BuildExportArguments(), OutputFilePath, selectionDuration, AutoOpenFolder);
+            (string arguments, IReadOnlyList<string> tempFiles) = BuildExport();
+            VideoEditorExportRequest request = new(arguments, OutputFilePath, selectionDuration, AutoOpenFolder, tempFiles);
             VideoEditorExportResult result = await _services.Export(request, progress, _operationCancellation.Token);
 
             if (result.Succeeded && !result.WasCancelled)
             {
                 Progress = 100;
-                StatusText = $"Edited recording saved: {OutputFilePath}";
+                StatusText = AutoZoomEnabled && _autoZoomPlan.HasZoom
+                    ? $"Auto-zoomed recording saved: {OutputFilePath}"
+                    : $"Edited recording saved: {OutputFilePath}";
             }
             else if (result.WasCancelled)
             {
@@ -362,6 +585,8 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         InPoint = Math.Clamp(value, 0, Math.Max(0, OutPoint - 0.05));
         PreviewPosition = Math.Clamp(PreviewPosition, InPoint, OutPoint);
         _adjustingTime = false;
+        StopPlayback();
+        InvalidatePlaybackSequence();
     }
 
     partial void OnOutPointChanged(double value)
@@ -371,14 +596,24 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         OutPoint = Math.Clamp(value, Math.Min(Duration, InPoint + 0.05), Duration);
         PreviewPosition = Math.Clamp(PreviewPosition, InPoint, OutPoint);
         _adjustingTime = false;
+        StopPlayback();
+        InvalidatePlaybackSequence();
     }
 
     partial void OnPreviewPositionChanged(double value)
     {
-        if (_adjustingTime) return;
+        if (_adjustingTime)
+        {
+            UpdateCameraRect();
+            return;
+        }
+
         _adjustingTime = true;
         PreviewPosition = Math.Clamp(value, InPoint, OutPoint);
         _adjustingTime = false;
+
+        StopPlayback();
+        UpdateCameraRect();
         _ = LoadPreviewAsync(PreviewPosition, immediate: false);
     }
 
@@ -388,6 +623,8 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         {
             SelectedCropAspect = CropAspects[0];
         }
+
+        UpdateCameraRect();
     }
 
     partial void OnSelectedCropAspectChanged(VideoCropAspectItem value)
@@ -399,6 +636,61 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     }
 
     partial void OnAutoOpenFolderChanged(bool value) => _options.AutoOpenFolder = value;
+
+    partial void OnAutoZoomEnabledChanged(bool value)
+    {
+        IsCropEditable = !value;
+        RebuildAutoZoomPlan();
+    }
+
+    partial void OnAutoZoomAmountChanged(double value)
+    {
+        _options.AutoZoomAmount = value;
+        RebuildAutoZoomPlan();
+    }
+
+    partial void OnAutoZoomSmoothnessChanged(double value)
+    {
+        _options.AutoZoomSmoothness = value;
+        RebuildAutoZoomPlan();
+    }
+
+    private void RebuildAutoZoomPlan()
+    {
+        if (HasMotionData && AutoZoomEnabled && _motionData != null)
+        {
+            AutoZoomParameters parameters = new(true, AutoZoomAmount, AutoZoomSmoothness);
+            _autoZoomPlan = AutoZoomPlanner.Build(_motionData, parameters, FramesPerSecond > 0 ? Math.Min(FramesPerSecond, 30) : 30);
+
+            ZoomRegions = [.. _autoZoomPlan.ZoomRegions.Select(r => new TimelineZoomRegion(r.Start, r.End))];
+            int clicks = _motionData.Clicks?.Count ?? 0;
+            AutoZoomStatusText = _autoZoomPlan.HasZoom
+                ? $"{_autoZoomPlan.ZoomRegions.Count} zoom moment(s) • {clicks} click(s) • up to {_autoZoomPlan.MaxZoom:0.0}×"
+                : "No strong focus points detected — try increasing the amount.";
+        }
+        else
+        {
+            _autoZoomPlan = AutoZoomPlan.Empty;
+            ZoomRegions = [];
+            AutoZoomStatusText = HasMotionData ? "" : "No motion track was recorded with this video.";
+        }
+
+        UpdateCameraRect();
+    }
+
+    private void UpdateCameraRect()
+    {
+        if (AutoZoomEnabled && _autoZoomPlan.HasZoom && SourceWidth > 0 && SourceHeight > 0)
+        {
+            AutoZoomState state = _autoZoomPlan.Sample(PreviewPosition);
+            Rect crop = CropRect.Width > 0 && CropRect.Height > 0 ? CropRect : new Rect(0, 0, SourceWidth, SourceHeight);
+            CameraRect = AutoZoomFilter.ComputeCameraRect(SourceWidth, SourceHeight, crop, state);
+        }
+        else if (CameraRect != default)
+        {
+            CameraRect = default;
+        }
+    }
 
     private void ApplyCropPreset(VideoCropAspectItem aspect)
     {
@@ -446,10 +738,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
             if (!immediate) await Task.Delay(120, cancellation.Token);
             byte[]? bytes = await _services.GetPreview(InputFilePath, TimeSpan.FromSeconds(seconds), cancellation.Token);
             if (bytes == null || bytes.Length == 0 || cancellation.IsCancellationRequested) return;
-            Bitmap bitmap = new(new MemoryStream(bytes, writable: false));
-            Bitmap? previous = PreviewImage;
-            PreviewImage = bitmap;
-            previous?.Dispose();
+            SetPreviewFromBytes(bytes);
         }
         catch (OperationCanceledException)
         {
@@ -460,6 +749,20 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void SetPreviewFromBytes(byte[] bytes)
+    {
+        try
+        {
+            Bitmap bitmap = new(new MemoryStream(bytes, writable: false));
+            Bitmap? previous = PreviewImage;
+            PreviewImage = bitmap;
+            previous?.Dispose();
+        }
+        catch
+        {
+        }
+    }
+
     private void CancelPreview()
     {
         _previewCancellation?.Cancel();
@@ -467,19 +770,48 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _previewCancellation = null;
     }
 
-    private string BuildExportArguments()
+    private (string Arguments, IReadOnlyList<string> TempFiles) BuildExport()
     {
         Rect crop = GetEvenCrop();
         double length = Math.Max(0.05, OutPoint - InPoint);
         string start = InPoint.ToString("0.###", CultureInfo.InvariantCulture);
         string duration = length.ToString("0.###", CultureInfo.InvariantCulture);
-        string filter = crop.X == 0 && crop.Y == 0 && crop.Width == SourceWidth && crop.Height == SourceHeight
-            ? string.Empty
-            : $"-vf \"crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y}\" ";
+        bool cropNeeded = crop.X != 0 || crop.Y != 0 || crop.Width != SourceWidth || crop.Height != SourceHeight;
 
-        return $"-ss {start} -i \"{InputFilePath}\" -t {duration} -map 0:v:0 -map 0:a? {filter}" +
+        if (AutoZoomEnabled && _autoZoomPlan.HasZoom)
+        {
+            double fps = FramesPerSecond > 0 ? FramesPerSecond : 30;
+            // The export seeks to InPoint (-ss), so zoompan's clock (on/fps) restarts at 0 there. Shift the
+            // plan's absolute keyframe times into the trimmed clip's timeline.
+            IReadOnlyList<AutoZoomKeyframe> keyframes = [.. _autoZoomPlan.GetKeyframes().Select(k => k with { Time = k.Time - InPoint })];
+            string inputLabel = cropNeeded
+                ? $"[0:v]crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y},"
+                : "[0:v]";
+            string graph = AutoZoomFilter.BuildZoomPanFilter(
+                keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, inputLabel, "[v]");
+
+            string graphFile = Path.Combine(Path.GetTempPath(), $"ShareX-autozoom-{Guid.NewGuid():N}.txt");
+            File.WriteAllText(graphFile, graph);
+
+            string arguments =
+                $"-ss {start} -i \"{InputFilePath}\" -t {duration} -filter_complex_script \"{graphFile}\" " +
+                "-map \"[v]\" -map 0:a? -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p " +
+                "-c:a aac -b:a 128k -movflags +faststart " +
+                $"-y \"{OutputFilePath}\"";
+
+            return (arguments, [graphFile]);
+        }
+
+        string filter = cropNeeded
+            ? $"-vf \"crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y}\" "
+            : string.Empty;
+
+        string plain =
+            $"-ss {start} -i \"{InputFilePath}\" -t {duration} -map 0:v:0 -map 0:a? {filter}" +
             "-c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart " +
             $"-y \"{OutputFilePath}\"";
+
+        return (plain, []);
     }
 
     private Rect GetEvenCrop()
@@ -514,7 +846,10 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        StopPlayback();
         CancelPreview();
+        _sequenceCancellation?.Cancel();
+        _sequenceCancellation?.Dispose();
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
         PreviewImage?.Dispose();

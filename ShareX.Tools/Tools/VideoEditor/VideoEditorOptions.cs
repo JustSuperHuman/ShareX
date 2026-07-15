@@ -17,4 +17,6 @@ namespace ShareX.Tools;
 public sealed class VideoEditorOptions
 {
     public bool AutoOpenFolder { get; set; } = true;
+    public double AutoZoomAmount { get; set; } = 1.8;
+    public double AutoZoomSmoothness { get; set; } = 0.5;
 }
