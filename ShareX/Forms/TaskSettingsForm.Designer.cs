@@ -211,6 +211,8 @@
             nudRegionCaptureMagnifierPixelCount = new System.Windows.Forms.NumericUpDown();
             nudRegionCaptureMagnifierPixelSize = new System.Windows.Forms.NumericUpDown();
             tpScreenRecorder = new System.Windows.Forms.TabPage();
+            cbScreenRecordCopyFilePath = new System.Windows.Forms.CheckBox();
+            cbScreenRecordOpenFolderOnNotificationClick = new System.Windows.Forms.CheckBox();
             cbScreenRecordTransparentRegion = new System.Windows.Forms.CheckBox();
             cbScreenRecordTwoPassEncoding = new System.Windows.Forms.CheckBox();
             cbScreenRecordConfirmAbort = new System.Windows.Forms.CheckBox();
@@ -1742,9 +1744,25 @@
             tpScreenRecorder.Controls.Add(cbScreenRecorderFixedDuration);
             tpScreenRecorder.Controls.Add(nudGIFFPS);
             tpScreenRecorder.Controls.Add(lblGIFFPS);
+            tpScreenRecorder.Controls.Add(cbScreenRecordCopyFilePath);
+            tpScreenRecorder.Controls.Add(cbScreenRecordOpenFolderOnNotificationClick);
             resources.ApplyResources(tpScreenRecorder, "tpScreenRecorder");
             tpScreenRecorder.Name = "tpScreenRecorder";
-            // 
+            //
+            // cbScreenRecordCopyFilePath
+            //
+            resources.ApplyResources(cbScreenRecordCopyFilePath, "cbScreenRecordCopyFilePath");
+            cbScreenRecordCopyFilePath.Name = "cbScreenRecordCopyFilePath";
+            cbScreenRecordCopyFilePath.UseVisualStyleBackColor = true;
+            cbScreenRecordCopyFilePath.CheckedChanged += cbScreenRecordCopyFilePath_CheckedChanged;
+            //
+            // cbScreenRecordOpenFolderOnNotificationClick
+            //
+            resources.ApplyResources(cbScreenRecordOpenFolderOnNotificationClick, "cbScreenRecordOpenFolderOnNotificationClick");
+            cbScreenRecordOpenFolderOnNotificationClick.Name = "cbScreenRecordOpenFolderOnNotificationClick";
+            cbScreenRecordOpenFolderOnNotificationClick.UseVisualStyleBackColor = true;
+            cbScreenRecordOpenFolderOnNotificationClick.CheckedChanged += cbScreenRecordOpenFolderOnNotificationClick_CheckedChanged;
+            //
             // cbScreenRecordTransparentRegion
             // 
             resources.ApplyResources(cbScreenRecordTransparentRegion, "cbScreenRecordTransparentRegion");
@@ -2805,6 +2823,8 @@
         private System.Windows.Forms.Button btnAutoIncrementNumber;
         private System.Windows.Forms.Label lblActionsNote;
         private System.Windows.Forms.CheckBox cbScreenRecordTransparentRegion;
+        private System.Windows.Forms.CheckBox cbScreenRecordCopyFilePath;
+        private System.Windows.Forms.CheckBox cbScreenRecordOpenFolderOnNotificationClick;
         private System.Windows.Forms.CheckBox cbOverrideScreenshotsFolder;
         private System.Windows.Forms.Button btnScreenshotsFolderBrowse;
         private System.Windows.Forms.TextBox txtScreenshotsFolder;

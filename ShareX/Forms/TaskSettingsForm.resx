@@ -4896,6 +4896,66 @@
   <data name="&gt;&gt;cbScreenRecordConfirmAbort.ZOrder" xml:space="preserve">
     <value>2</value>
   </data>
+  <data name="cbScreenRecordCopyFilePath.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="cbScreenRecordCopyFilePath.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="cbScreenRecordCopyFilePath.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 248</value>
+  </data>
+  <data name="cbScreenRecordCopyFilePath.Size" type="System.Drawing.Size, System.Drawing">
+    <value>257, 17</value>
+  </data>
+  <data name="cbScreenRecordCopyFilePath.TabIndex" type="System.Int32, mscorlib">
+    <value>20</value>
+  </data>
+  <data name="cbScreenRecordCopyFilePath.Text" xml:space="preserve">
+    <value>Copy screen recording file path to clipboard</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordCopyFilePath.Name" xml:space="preserve">
+    <value>cbScreenRecordCopyFilePath</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordCopyFilePath.Type" xml:space="preserve">
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordCopyFilePath.Parent" xml:space="preserve">
+    <value>tpScreenRecorder</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordCopyFilePath.ZOrder" xml:space="preserve">
+    <value>15</value>
+  </data>
+  <data name="cbScreenRecordOpenFolderOnNotificationClick.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="cbScreenRecordOpenFolderOnNotificationClick.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="cbScreenRecordOpenFolderOnNotificationClick.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 272</value>
+  </data>
+  <data name="cbScreenRecordOpenFolderOnNotificationClick.Size" type="System.Drawing.Size, System.Drawing">
+    <value>336, 17</value>
+  </data>
+  <data name="cbScreenRecordOpenFolderOnNotificationClick.TabIndex" type="System.Int32, mscorlib">
+    <value>21</value>
+  </data>
+  <data name="cbScreenRecordOpenFolderOnNotificationClick.Text" xml:space="preserve">
+    <value>Open screen recording folder when notification is clicked</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordOpenFolderOnNotificationClick.Name" xml:space="preserve">
+    <value>cbScreenRecordOpenFolderOnNotificationClick</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordOpenFolderOnNotificationClick.Type" xml:space="preserve">
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordOpenFolderOnNotificationClick.Parent" xml:space="preserve">
+    <value>tpScreenRecorder</value>
+  </data>
+  <data name="&gt;&gt;cbScreenRecordOpenFolderOnNotificationClick.ZOrder" xml:space="preserve">
+    <value>16</value>
+  </data>
   <data name="cbScreenRecorderShowCursor.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
   </data>

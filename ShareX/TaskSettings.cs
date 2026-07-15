@@ -404,6 +404,8 @@ namespace ShareX
         public bool ScreenRecordTwoPassEncoding = false;
         public bool ScreenRecordAskConfirmationOnAbort = false;
         public bool ScreenRecordTransparentRegion = false;
+        public bool ScreenRecordCopyFilePathToClipboard = false;
+        public bool ScreenRecordOpenFolderOnNotificationClick = false;
 
         #endregion Capture / Screen recorder
 
