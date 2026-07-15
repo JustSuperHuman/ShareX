@@ -352,6 +352,8 @@ namespace ShareX
                         }
                     }
 
+                    ApplyCompletionActions(taskSettings);
+
                     WorkerTask task = WorkerTask.CreateFileJobTask(path, metadata, taskSettings, customFileName);
                     TaskManager.Start(task);
                 }
@@ -359,6 +361,22 @@ namespace ShareX
                 abortRequested = false;
                 IsRecording = false;
             });
+        }
+
+        private static void ApplyCompletionActions(TaskSettings taskSettings)
+        {
+            if (taskSettings.CaptureSettings.ScreenRecordCopyFilePathToClipboard)
+            {
+                taskSettings.AfterCaptureJob = taskSettings.AfterCaptureJob
+                    .Remove(AfterCaptureTasks.CopyFileToClipboard)
+                    .Remove(AfterCaptureTasks.CopyFolderPathToClipboard)
+                    .Add(AfterCaptureTasks.CopyFilePathToClipboard);
+            }
+
+            if (taskSettings.CaptureSettings.ScreenRecordOpenFolderOnNotificationClick)
+            {
+                taskSettings.GeneralSettings.ToastWindowLeftClickAction = ToastClickAction.OpenFolder;
+            }
         }
 
         private static void ScreenRecorder_RecordingStarted()

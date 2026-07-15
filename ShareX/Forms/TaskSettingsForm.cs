@@ -350,6 +350,8 @@ namespace ShareX
             cbScreenRecordTwoPassEncoding.Checked = TaskSettings.CaptureSettings.ScreenRecordTwoPassEncoding;
             cbScreenRecordTransparentRegion.Checked = TaskSettings.CaptureSettings.ScreenRecordTransparentRegion;
             cbScreenRecordConfirmAbort.Checked = TaskSettings.CaptureSettings.ScreenRecordAskConfirmationOnAbort;
+            cbScreenRecordCopyFilePath.Checked = TaskSettings.CaptureSettings.ScreenRecordCopyFilePathToClipboard;
+            cbScreenRecordOpenFolderOnNotificationClick.Checked = TaskSettings.CaptureSettings.ScreenRecordOpenFolderOnNotificationClick;
 
             #endregion Screen recorder
 
@@ -1383,6 +1385,16 @@ namespace ShareX
         private void cbScreenRecordConfirmAbort_CheckedChanged(object sender, EventArgs e)
         {
             TaskSettings.CaptureSettings.ScreenRecordAskConfirmationOnAbort = cbScreenRecordConfirmAbort.Checked;
+        }
+
+        private void cbScreenRecordCopyFilePath_CheckedChanged(object sender, EventArgs e)
+        {
+            TaskSettings.CaptureSettings.ScreenRecordCopyFilePathToClipboard = cbScreenRecordCopyFilePath.Checked;
+        }
+
+        private void cbScreenRecordOpenFolderOnNotificationClick_CheckedChanged(object sender, EventArgs e)
+        {
+            TaskSettings.CaptureSettings.ScreenRecordOpenFolderOnNotificationClick = cbScreenRecordOpenFolderOnNotificationClick.Checked;
         }
 
         #endregion Screen recorder
