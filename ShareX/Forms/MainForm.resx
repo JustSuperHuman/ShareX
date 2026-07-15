@@ -559,6 +559,12 @@
   <data name="tsmiVideoConverter.Size" type="System.Drawing.Size, System.Drawing">
     <value>194, 22</value>
   </data>
+  <data name="tsmiVideoEditor.Size" type="System.Drawing.Size, System.Drawing">
+    <value>194, 22</value>
+  </data>
+  <data name="tsmiVideoEditor.Text" xml:space="preserve">
+    <value>Video editor...</value>
+  </data>
   <data name="tsmiVideoConverter.Text" xml:space="preserve">
     <value>Video converter...</value>
   </data>
@@ -1222,6 +1228,12 @@
   <data name="tsmiEditSelectedFile.Text" xml:space="preserve">
     <value>Edit image...</value>
   </data>
+  <data name="tsmiEditSelectedVideo.Size" type="System.Drawing.Size, System.Drawing">
+    <value>228, 22</value>
+  </data>
+  <data name="tsmiEditSelectedVideo.Text" xml:space="preserve">
+    <value>Edit video...</value>
+  </data>
   <data name="tsmiBeautifyImage.Size" type="System.Drawing.Size, System.Drawing">
     <value>228, 22</value>
   </data>
@@ -1632,6 +1644,12 @@
   </data>
   <data name="tsmiTrayVideoConverter.Size" type="System.Drawing.Size, System.Drawing">
     <value>194, 22</value>
+  </data>
+  <data name="tsmiTrayVideoEditor.Size" type="System.Drawing.Size, System.Drawing">
+    <value>194, 22</value>
+  </data>
+  <data name="tsmiTrayVideoEditor.Text" xml:space="preserve">
+    <value>Video editor...</value>
   </data>
   <data name="tsmiTrayVideoConverter.Text" xml:space="preserve">
     <value>Video converter...</value>

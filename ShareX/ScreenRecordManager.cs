@@ -337,9 +337,31 @@ namespace ShareX
 
                 FileHelpers.DeleteFile(concatPath);
                 FileHelpers.DeleteFile(tempPath);
-            }).ContinueInCurrentContext(() =>
+            }).ContinueInCurrentContext(() => CompleteRecording(path, metadata, taskSettings, abortRequested));
+        }
+
+        private static void CompleteRecording(
+            string path,
+            TaskMetadata metadata,
+            TaskSettings taskSettings,
+            bool aborted,
+            ScreenRecordingQuickTaskAction action = ScreenRecordingQuickTaskAction.Continue,
+            bool skipQuickTaskMenu = false)
+        {
+            if (!aborted && !skipQuickTaskMenu && !string.IsNullOrEmpty(path) && File.Exists(path) &&
+                taskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowQuickTaskMenu))
             {
-                if (!abortRequested && !string.IsNullOrEmpty(path) && File.Exists(path) && TaskHelpers.ShowAfterCaptureForm(taskSettings, out string customFileName, null, path))
+                ScreenRecordingQuickTaskMenu quickTaskMenu = new ScreenRecordingQuickTaskMenu();
+                quickTaskMenu.ActionSelected += selectedAction =>
+                    CompleteRecording(path, metadata, taskSettings, aborted, selectedAction, true);
+                quickTaskMenu.ShowMenu(path);
+                return;
+            }
+
+            try
+            {
+                if (!aborted && !string.IsNullOrEmpty(path) && File.Exists(path) &&
+                    TaskHelpers.ShowAfterCaptureForm(taskSettings, out string customFileName, null, path))
                 {
                     if (!string.IsNullOrEmpty(customFileName))
                     {
@@ -353,14 +375,39 @@ namespace ShareX
                     }
 
                     ApplyCompletionActions(taskSettings);
+                    ApplyQuickTaskAction(taskSettings, action);
 
                     WorkerTask task = WorkerTask.CreateFileJobTask(path, metadata, taskSettings, customFileName);
                     TaskManager.Start(task);
-                }
 
-                abortRequested = false;
+                    if (action == ScreenRecordingQuickTaskAction.EditVideo)
+                    {
+                        TaskHelpers.OpenVideoEditor(path, taskSettings);
+                    }
+                }
+            }
+            finally
+            {
                 IsRecording = false;
-            });
+            }
+        }
+
+        private static void ApplyQuickTaskAction(TaskSettings taskSettings, ScreenRecordingQuickTaskAction action)
+        {
+            if (action == ScreenRecordingQuickTaskAction.EditVideo)
+            {
+                taskSettings.AfterCaptureJob = taskSettings.AfterCaptureJob.Remove(AfterCaptureTasks.DeleteFile);
+            }
+            else if (action is ScreenRecordingQuickTaskAction.CopyFilePath or ScreenRecordingQuickTaskAction.CopyFile)
+            {
+                taskSettings.AfterCaptureJob = taskSettings.AfterCaptureJob
+                    .Remove(AfterCaptureTasks.CopyFileToClipboard)
+                    .Remove(AfterCaptureTasks.CopyFilePathToClipboard)
+                    .Remove(AfterCaptureTasks.CopyFolderPathToClipboard)
+                    .Add(action == ScreenRecordingQuickTaskAction.CopyFilePath
+                        ? AfterCaptureTasks.CopyFilePathToClipboard
+                        : AfterCaptureTasks.CopyFileToClipboard);
+            }
         }
 
         private static void ApplyCompletionActions(TaskSettings taskSettings)

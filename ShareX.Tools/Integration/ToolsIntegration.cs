@@ -207,6 +207,12 @@ public static class ToolsIntegration
         Show(() => new VideoConverterWindow(options, handler, inputFilePath));
     }
 
+    public static void ShowVideoEditorWindow(VideoEditorOptions options, VideoEditorServices services,
+        string? inputFilePath = null)
+    {
+        Show(() => new VideoEditorWindow(options, services, inputFilePath));
+    }
+
     public static void ShowVideoThumbnailerWindow(string ffmpegPath, VideoThumbnailOptions options,
         Action<IReadOnlyList<VideoThumbnailInfo>>? thumbnailsTaken = null)
     {

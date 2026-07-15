@@ -42,6 +42,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -292,6 +293,16 @@ namespace ShareX
                     else
                     {
                         OpenVideoConverter(safeTaskSettings);
+                    }
+                    break;
+                case HotkeyType.VideoEditor:
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        OpenVideoEditor(filePath, safeTaskSettings);
+                    }
+                    else
+                    {
+                        OpenVideoEditor(safeTaskSettings);
                     }
                     break;
                 case HotkeyType.VideoThumbnailer:
@@ -1181,6 +1192,132 @@ namespace ShareX
                 }
 
                 return new VideoConversionResult(succeeded, wasCancelled, errorMessage);
+            }, cancellationToken);
+        }
+
+        public static void OpenVideoEditor(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            if (CheckFFmpeg(taskSettings))
+            {
+                ShowVideoEditor(taskSettings);
+            }
+        }
+
+        public static void OpenVideoEditor(string filePath, TaskSettings taskSettings = null)
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            if (CheckFFmpeg(taskSettings))
+            {
+                ShowVideoEditor(taskSettings, filePath);
+            }
+        }
+
+        private static void ShowVideoEditor(TaskSettings taskSettings, string inputFilePath = null)
+        {
+            string ffmpegPath = taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath;
+            VideoEditorServices services = new(
+                (filePath, cancellationToken) => ProbeVideoForEditorAsync(ffmpegPath, filePath, cancellationToken),
+                (filePath, position, cancellationToken) => GetVideoEditorPreviewAsync(ffmpegPath, filePath, position, cancellationToken),
+                (request, progress, cancellationToken) => ExportVideoEditorAsync(ffmpegPath, request, progress, cancellationToken));
+
+            ToolsIntegration.ShowVideoEditorWindow(
+                taskSettings.ToolsSettingsReference.VideoEditorOptions,
+                services,
+                inputFilePath);
+        }
+
+        private static Task<VideoEditorMediaInfo> ProbeVideoForEditorAsync(string ffmpegPath, string filePath, CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using FFmpegCLIManager ffmpeg = new FFmpegCLIManager(ffmpegPath) { ShowError = false };
+                using CancellationTokenRegistration registration = cancellationToken.Register(ffmpeg.Close);
+                VideoInfo info = ffmpeg.GetVideoInfo(filePath);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (info == null || info.Duration <= TimeSpan.Zero || info.VideoResolution.IsEmpty)
+                {
+                    string error = ffmpeg.Output.ToString()
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .LastOrDefault();
+                    return new VideoEditorMediaInfo(TimeSpan.Zero, 0, 0, 0, error ?? "ShareX could not read this video.");
+                }
+
+                return new VideoEditorMediaInfo(
+                    info.Duration,
+                    info.VideoResolution.Width,
+                    info.VideoResolution.Height,
+                    info.VideoFPS);
+            }, cancellationToken);
+        }
+
+        private static Task<byte[]> GetVideoEditorPreviewAsync(
+            string ffmpegPath,
+            string filePath,
+            TimeSpan position,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string previewPath = Path.Combine(Path.GetTempPath(), $"ShareX-video-preview-{Guid.NewGuid():N}.jpg");
+
+                try
+                {
+                    using FFmpegCLIManager ffmpeg = new FFmpegCLIManager(ffmpegPath) { ShowError = false };
+                    using CancellationTokenRegistration registration = cancellationToken.Register(ffmpeg.Close);
+                    string seconds = Math.Max(0, position.TotalSeconds).ToString("0.###", CultureInfo.InvariantCulture);
+                    bool succeeded = ffmpeg.Run($"-ss {seconds} -i \"{filePath}\" -frames:v 1 -q:v 2 -y \"{previewPath}\"");
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return succeeded && File.Exists(previewPath) ? File.ReadAllBytes(previewPath) : null;
+                }
+                finally
+                {
+                    FileHelpers.DeleteFile(previewPath);
+                }
+            }, cancellationToken);
+        }
+
+        private static Task<VideoEditorExportResult> ExportVideoEditorAsync(
+            string ffmpegPath,
+            VideoEditorExportRequest request,
+            IProgress<double> progress,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using FFmpegCLIManager ffmpeg = new FFmpegCLIManager(ffmpegPath)
+                {
+                    ShowError = false,
+                    TrackEncodeProgress = true,
+                    VideoDuration = request.Duration
+                };
+
+                ffmpeg.EncodeProgressChanged += percentage => progress.Report(percentage);
+                using CancellationTokenRegistration registration = cancellationToken.Register(ffmpeg.Close);
+                bool succeeded = ffmpeg.Run(request.Arguments);
+                bool wasCancelled = cancellationToken.IsCancellationRequested || ffmpeg.StopRequested;
+
+                if (succeeded && !wasCancelled && request.AutoOpenFolder)
+                {
+                    FileHelpers.OpenFolderWithFile(request.OutputFilePath);
+                }
+
+                string error = null;
+                if (!succeeded && !wasCancelled)
+                {
+                    error = ffmpeg.Output.ToString()
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .LastOrDefault();
+                }
+
+                return new VideoEditorExportResult(succeeded, wasCancelled, error);
             }, cancellationToken);
         }
 
@@ -2448,6 +2585,7 @@ namespace ShareX
                 HotkeyType.ImageSplitter => LucideIcons.split,
                 HotkeyType.ImageThumbnailer => LucideIcons.shrink,
                 HotkeyType.VideoConverter => LucideIcons.file_video,
+                HotkeyType.VideoEditor => LucideIcons.scissors,
                 HotkeyType.VideoThumbnailer => LucideIcons.clapperboard,
                 HotkeyType.AnalyzeImage => LucideIcons.bot,
                 HotkeyType.OCR => LucideIcons.scan_text,
@@ -2584,6 +2722,7 @@ namespace ShareX
                     case HotkeyType.ImageSplitter: return Resources.image_split;
                     case HotkeyType.ImageThumbnailer: return Resources.image_resize_actual;
                     case HotkeyType.VideoConverter: return Resources.camcorder_pencil;
+                    case HotkeyType.VideoEditor: return Resources.camcorder_pencil;
                     case HotkeyType.VideoThumbnailer: return Resources.images_stack;
                     case HotkeyType.AnalyzeImage: return Resources.robot;
                     case HotkeyType.OCR: return ShareXResources.IsDarkTheme ? Resources.edit_drop_cap_white : Resources.edit_drop_cap;

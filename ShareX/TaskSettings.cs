@@ -461,6 +461,7 @@ namespace ShareX
         public IndexerSettings IndexerSettings = new IndexerSettings();
         public ImageCombinerOptions ImageCombinerOptions = new ImageCombinerOptions();
         public VideoConverterOptions VideoConverterOptions = new VideoConverterOptions();
+        public VideoEditorOptions VideoEditorOptions = new VideoEditorOptions();
         public VideoThumbnailOptions VideoThumbnailOptions = new VideoThumbnailOptions();
         public BorderlessWindowSettings BorderlessWindowSettings = new BorderlessWindowSettings();
         public AIOptions AIOptions = new AIOptions();

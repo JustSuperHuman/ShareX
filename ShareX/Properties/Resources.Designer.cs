@@ -2465,6 +2465,15 @@ namespace ShareX.Properties {
                 return ResourceManager.GetString("QuickTaskMenu_ShowMenu_Edit_this_menu___", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Edit video....
+        /// </summary>
+        internal static string ScreenRecordingQuickTaskMenu_EditVideo {
+            get {
+                return ResourceManager.GetString("ScreenRecordingQuickTaskMenu_EditVideo", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Reset all quick tasks to defaults?.
