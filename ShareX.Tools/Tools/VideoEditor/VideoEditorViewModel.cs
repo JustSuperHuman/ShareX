@@ -26,6 +26,10 @@ namespace ShareX.Tools;
 
 public sealed record VideoCropAspectItem(string DisplayName, double? Ratio, bool IsOriginal = false);
 
+public sealed record VideoExportSizeItem(string DisplayName, int MaxHeight);
+
+public sealed record VideoExportQualityItem(string DisplayName, int Crf);
+
 public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 {
     public static IReadOnlyList<VideoCropAspectItem> CropAspects { get; } =
@@ -40,6 +44,25 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     public static IReadOnlyList<double> PlaybackSpeeds { get; } = [0.5, 1, 1.5, 2];
 
+    public static IReadOnlyList<double> SpeedPresets { get; } = [0.25, 0.5, 1, 1.5, 2, 4];
+
+    public static IReadOnlyList<VideoExportSizeItem> ExportSizes { get; } =
+    [
+        new("Original size", 0),
+        new("Up to 1080p", 1080),
+        new("Up to 720p", 720),
+        new("Up to 480p", 480)
+    ];
+
+    public static IReadOnlyList<VideoExportQualityItem> ExportQualities { get; } =
+    [
+        new("High quality", 18),
+        new("Balanced", 23),
+        new("Smaller file", 28)
+    ];
+
+    private const double IdleFastForwardSpeed = 4;
+
     private const double PlaybackFrameRate = 15;
     private const int PlaybackMaxWidth = 960;
 
@@ -53,7 +76,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     private readonly DispatcherTimer _playbackTimer;
     private readonly Stopwatch _playbackClock = new();
-    private double _playbackAnchor;
+    private double _lastTickSeconds;
     private byte[][]? _playbackFrames;
     private double _playbackSequenceFps;
     private double _playbackSequenceStart;
@@ -63,6 +86,14 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     private ScreenRecordingMotionData? _motionData;
     private AutoZoomPlan _autoZoomPlan = AutoZoomPlan.Empty;
+
+    // The speed segments always cover [InPoint, OutPoint] contiguously; each plays at its own multiplier.
+    private List<SpeedSegment> _segments = [];
+    private bool _hasAudio;
+
+    // Snapshots of the segment lane taken before every clip edit, so Ctrl+Z can walk back through
+    // splits, speed changes, cuts, and idle passes.
+    private readonly Stack<(List<SpeedSegment> Segments, int SelectedIndex)> _undoStack = new();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InputFileDisplay))]
@@ -171,6 +202,29 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private IReadOnlyList<TimelineZoomRegion> _zoomRegions = [];
 
+    [ObservableProperty]
+    private IReadOnlyList<TimelineSpeedSegment> _speedBands = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedSegment))]
+    [NotifyPropertyChangedFor(nameof(SelectedSegmentText))]
+    [NotifyPropertyChangedFor(nameof(SelectedSpeed))]
+    [NotifyPropertyChangedFor(nameof(SelectedSegmentRemoved))]
+    private int _selectedSegmentIndex = -1;
+
+    [ObservableProperty]
+    private IReadOnlyList<double> _clickMarkers = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IdleThresholdText))]
+    private double _idleThresholdSeconds;
+
+    [ObservableProperty]
+    private VideoExportSizeItem _selectedExportSize = ExportSizes[0];
+
+    [ObservableProperty]
+    private VideoExportQualityItem _selectedExportQuality = ExportQualities[0];
+
     public VideoEditorViewModel(VideoEditorOptions options, VideoEditorServices services, string? inputFilePath = null)
     {
         _options = options;
@@ -178,6 +232,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _autoOpenFolder = options.AutoOpenFolder;
         _autoZoomAmount = options.AutoZoomAmount;
         _autoZoomSmoothness = options.AutoZoomSmoothness;
+        _idleThresholdSeconds = Math.Clamp(options.IdleThresholdSeconds, 0.5, 10);
+        _selectedExportSize = ExportSizes.FirstOrDefault(s => s.MaxHeight == options.ExportMaxHeight) ?? ExportSizes[0];
+        _selectedExportQuality = ExportQualities.FirstOrDefault(q => q.Crf == options.ExportCrf) ?? ExportQualities[0];
         InputFilePath = inputFilePath ?? string.Empty;
 
         _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0 / PlaybackFrameRate) };
@@ -188,7 +245,8 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     public Func<string, Task<string?>>? SelectOutputFolderRequested { get; set; }
 
     public bool IsIdle => !IsBusy;
-    public bool CanExport => IsIdle && Duration > 0 && OutPoint > InPoint && SourceWidth > 0 && SourceHeight > 0;
+    public bool CanExport => IsIdle && Duration > 0 && OutPoint > InPoint && SourceWidth > 0 && SourceHeight > 0 && HasKeptClip;
+    private bool HasKeptClip => _segments.Count == 0 || _segments.Any(s => !s.Removed);
     public bool HasNoPreview => PreviewImage == null;
     public bool AutoZoomAvailable => HasMotionData;
     public string InputFileDisplay => string.IsNullOrWhiteSpace(InputFilePath) ? "No file selected" : InputFilePath;
@@ -197,6 +255,33 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     public string PreviewTimeText => FormatTime(PreviewPosition);
     public string SelectionDurationText => FormatTime(Math.Max(0, OutPoint - InPoint));
     public string CropSizeText => CropWidth > 0 && CropHeight > 0 ? $"{CropWidth:0} × {CropHeight:0}" : string.Empty;
+
+    public bool HasSelectedSegment => SelectedSegmentIndex >= 0 && SelectedSegmentIndex < _segments.Count;
+    public double SelectedSpeed => HasSelectedSegment ? _segments[SelectedSegmentIndex].Speed : 1;
+    public bool SelectedSegmentRemoved => HasSelectedSegment && _segments[SelectedSegmentIndex].Removed;
+    public bool HasSpeedEdits => VideoSpeedGraph.HasEdits(_segments);
+    public bool CanUndo => _undoStack.Count > 0;
+    public string IdleThresholdText => $"{IdleThresholdSeconds:0.#}s";
+
+    public string SelectedSegmentText
+    {
+        get
+        {
+            if (!HasSelectedSegment) return "Click a clip below, or split at the playhead to start.";
+            SpeedSegment segment = _segments[SelectedSegmentIndex];
+            string state = segment.Removed ? "cut" : FormatSpeed(segment.Speed);
+            return $"Clip {SelectedSegmentIndex + 1} of {_segments.Count}  •  {FormatTime(segment.SourceDuration)}  •  {state}";
+        }
+    }
+
+    public string SpeedSummaryText
+    {
+        get
+        {
+            if (!HasSpeedEdits) return _segments.Count > 1 ? "Set a speed on any clip, or cut it." : "Split the clip, then speed up, slow down, or cut each piece.";
+            return $"Output length ≈ {FormatTime(VideoSpeedGraph.OutputDuration(GetRelativeSegments(Math.Max(0.05, OutPoint - InPoint))))}";
+        }
+    }
 
     public double CropX { get => CropRect.X; set => SetCrop(value, CropRect.Y, CropRect.Width, CropRect.Height); }
     public double CropY { get => CropRect.Y; set => SetCrop(CropRect.X, value, CropRect.Width, CropRect.Height); }
@@ -286,10 +371,14 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
             SourceWidth = info.Width;
             SourceHeight = info.Height;
             FramesPerSecond = info.FramesPerSecond;
+            _hasAudio = info.HasAudio;
             Duration = info.Duration.TotalSeconds;
             InPoint = 0;
             OutPoint = Duration;
             PreviewPosition = 0;
+            _undoStack.Clear();
+            OnPropertyChanged(nameof(CanUndo));
+            InitializeSpeedSegments();
             ApplyCropPreset(CropAspects[1]);
             OutputFolderPath = Path.GetDirectoryName(filePath) ?? string.Empty;
             OutputFileName = $"{Path.GetFileNameWithoutExtension(filePath)}-edited.mp4";
@@ -320,6 +409,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         AutoZoomEnabled = false;
         _motionData = ScreenRecordingMotionData.Load(filePath);
         HasMotionData = _motionData is { HasSamples: true };
+        ClickMarkers = HasMotionData && _motionData?.Clicks != null
+            ? [.. _motionData.Clicks.Select(c => (double)c.T)]
+            : [];
         RebuildAutoZoomPlan();
     }
 
@@ -358,7 +450,190 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
+    private void GoToStart()
+    {
+        StopPlayback();
+        PreviewPosition = InPoint;
+    }
+
+    [RelayCommand]
+    private void GoToEnd()
+    {
+        StopPlayback();
+        PreviewPosition = OutPoint;
+    }
+
+    public void JumpBySeconds(double seconds)
+    {
+        StopPlayback();
+        PreviewPosition = Math.Clamp(PreviewPosition + seconds, InPoint, OutPoint);
+    }
+
+    [RelayCommand]
     private void ResetCrop() => ApplyCropPreset(CropAspects[1]);
+
+    [RelayCommand]
+    private void SplitAtPlayhead()
+    {
+        if (Duration <= 0) return;
+        PushUndoSnapshot();
+        if (SpeedSegmentEditor.Split(_segments, PreviewPosition))
+        {
+            SelectedSegmentIndex = SpeedSegmentEditor.IndexAt(_segments, PreviewPosition);
+            PublishSegments();
+            StatusText = "Split added — choose a speed for the highlighted clip, or cut it.";
+        }
+        else
+        {
+            DiscardUndoSnapshot();
+            StatusText = "Move the playhead into the middle of a clip to split it.";
+        }
+    }
+
+    [RelayCommand]
+    private void SetSegmentSpeed(string? speedText)
+    {
+        if (!double.TryParse(speedText, NumberStyles.Float, CultureInfo.InvariantCulture, out double speed)) return;
+        if (_segments.Count == 0 || Duration <= 0) return;
+
+        int index = HasSelectedSegment ? SelectedSegmentIndex : SpeedSegmentEditor.IndexAt(_segments, PreviewPosition);
+        if (index < 0 || index >= _segments.Count) return;
+
+        PushUndoSnapshot();
+        _segments[index] = _segments[index].WithSpeed(speed);
+        SelectedSegmentIndex = index;
+        PublishSegments();
+        StatusText = VideoSpeedGraph.IsUnity(speed)
+            ? "Clip set to normal speed."
+            : $"Clip set to {FormatSpeed(speed)} — the preview follows along.";
+    }
+
+    [RelayCommand]
+    private void ToggleRemoveSegment()
+    {
+        if (_segments.Count == 0 || Duration <= 0) return;
+
+        int index = HasSelectedSegment ? SelectedSegmentIndex : SpeedSegmentEditor.IndexAt(_segments, PreviewPosition);
+        if (index < 0 || index >= _segments.Count) return;
+
+        SpeedSegment segment = _segments[index];
+        if (!segment.Removed && _segments.Count(s => !s.Removed) <= 1)
+        {
+            StatusText = "At least one clip has to remain in the video.";
+            return;
+        }
+
+        PushUndoSnapshot();
+        _segments[index] = segment.WithRemoved(!segment.Removed);
+        SelectedSegmentIndex = index;
+        PublishSegments();
+        StatusText = segment.Removed
+            ? "Clip restored."
+            : "Clip cut — it will be skipped in the preview and the export.";
+    }
+
+    [RelayCommand]
+    private void FastForwardIdle() => ApplyIdle(remove: false);
+
+    [RelayCommand]
+    private void CutIdle() => ApplyIdle(remove: true);
+
+    private void ApplyIdle(bool remove)
+    {
+        if (_motionData == null || Duration <= 0) return;
+
+        IReadOnlyList<(double Start, double End)> spans = IdleDetector.FindIdleSpans(_motionData, InPoint, OutPoint, IdleThresholdSeconds);
+        if (spans.Count == 0)
+        {
+            StatusText = $"No idle stretches longer than {IdleThresholdText} found.";
+            return;
+        }
+
+        PushUndoSnapshot();
+        List<SpeedSegment> reconciled = SpeedSegmentEditor.Reconcile(_segments, InPoint, OutPoint);
+        _segments = SpeedSegmentEditor.ApplyRanges(reconciled, spans,
+            s => remove ? s.WithRemoved(true) : s.WithSpeed(IdleFastForwardSpeed));
+        SelectedSegmentIndex = -1;
+        PublishSegments();
+
+        double idleSeconds = IdleDetector.TotalSeconds(spans);
+        double savedSeconds = remove ? idleSeconds : idleSeconds - idleSeconds / IdleFastForwardSpeed;
+        string action = remove ? "Cut" : $"Fast-forwarded ({FormatSpeed(IdleFastForwardSpeed)})";
+        StatusText = $"{action} {spans.Count} idle stretch{(spans.Count == 1 ? "" : "es")} — the export gets ≈ {FormatTime(savedSeconds)} shorter. Undo with Ctrl+Z.";
+    }
+
+    [RelayCommand]
+    private void UndoSegmentEdit()
+    {
+        if (_undoStack.Count == 0) return;
+        (List<SpeedSegment> segments, int selectedIndex) = _undoStack.Pop();
+        _segments = SpeedSegmentEditor.Reconcile(segments, InPoint, OutPoint);
+        SelectedSegmentIndex = selectedIndex < _segments.Count ? selectedIndex : -1;
+        PublishSegments();
+        OnPropertyChanged(nameof(CanUndo));
+        StatusText = "Clip change undone.";
+    }
+
+    [RelayCommand]
+    private void ResetSpeeds()
+    {
+        PushUndoSnapshot();
+        InitializeSpeedSegments();
+        StatusText = "Speed and cut changes cleared.";
+    }
+
+    private void PushUndoSnapshot()
+    {
+        _undoStack.Push(([.. _segments], SelectedSegmentIndex));
+        OnPropertyChanged(nameof(CanUndo));
+    }
+
+    private void DiscardUndoSnapshot()
+    {
+        if (_undoStack.Count > 0) _undoStack.Pop();
+        OnPropertyChanged(nameof(CanUndo));
+    }
+
+    private void InitializeSpeedSegments()
+    {
+        _segments = SpeedSegmentEditor.Single(InPoint, OutPoint);
+        SelectedSegmentIndex = -1;
+        PublishSegments();
+    }
+
+    private void ReconcileSegments()
+    {
+        _segments = SpeedSegmentEditor.Reconcile(_segments, InPoint, OutPoint);
+        if (SelectedSegmentIndex >= _segments.Count) SelectedSegmentIndex = -1;
+        PublishSegments();
+    }
+
+    private void PublishSegments()
+    {
+        SpeedBands = [.. _segments.Select(s => new TimelineSpeedSegment(s.Start, s.End, s.Speed, s.Removed))];
+        OnPropertyChanged(nameof(HasSelectedSegment));
+        OnPropertyChanged(nameof(SelectedSpeed));
+        OnPropertyChanged(nameof(SelectedSegmentRemoved));
+        OnPropertyChanged(nameof(HasSpeedEdits));
+        OnPropertyChanged(nameof(SelectedSegmentText));
+        OnPropertyChanged(nameof(SpeedSummaryText));
+        OnPropertyChanged(nameof(CanExport));
+    }
+
+    // Current segments expressed in the trimmed clip's own timeline (0-based, matching an input-seeked
+    // export stream), clamped to the selection.
+    private List<SpeedSegment> GetRelativeSegments(double selectionLength)
+    {
+        List<SpeedSegment> reconciled = SpeedSegmentEditor.Reconcile(_segments, InPoint, OutPoint);
+        List<SpeedSegment> relative = [];
+        foreach (SpeedSegment s in reconciled)
+        {
+            double start = Math.Clamp(s.Start - InPoint, 0, selectionLength);
+            double end = Math.Clamp(s.End - InPoint, 0, selectionLength);
+            if (end - start > 1e-3) relative.Add(new SpeedSegment(start, end, s.Speed, s.Removed));
+        }
+        return relative.Count > 0 ? relative : SpeedSegmentEditor.Single(0, selectionLength);
+    }
 
     [RelayCommand]
     private async Task TogglePlaybackAsync()
@@ -398,9 +673,11 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         }
 
         if (PreviewPosition >= OutPoint - 0.01) PreviewPosition = InPoint;
+        double kept = SkipRemoved(PreviewPosition);
+        if (kept >= 0) PreviewPosition = kept;
 
-        _playbackAnchor = PreviewPosition;
         _playbackClock.Restart();
+        _lastTickSeconds = 0;
         _lastShownFrameIndex = -1;
         IsPlaying = true;
         StatusText = "Playing preview.";
@@ -418,15 +695,24 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     private void OnPlaybackTick(object? sender, EventArgs e)
     {
-        double elapsed = _playbackClock.Elapsed.TotalSeconds * SelectedPlaybackSpeed;
-        double position = _playbackAnchor + elapsed;
+        // Advance through source time at the local segment speed (times the preview speed control), so the
+        // preview plays exactly what the export will produce — sped-up clips race by, slowed clips linger,
+        // cut clips are hopped over entirely.
+        double now = _playbackClock.Elapsed.TotalSeconds;
+        double delta = Math.Max(0, now - _lastTickSeconds);
+        _lastTickSeconds = now;
 
-        if (position >= OutPoint)
+        double basePosition = SkipRemoved(PreviewPosition);
+        double rate = SelectedPlaybackSpeed * VideoSpeedGraph.SpeedAt(_segments, basePosition);
+        double position = SkipRemoved(basePosition + delta * rate);
+
+        if (position < 0 || position >= OutPoint)
         {
             // Loop within the selection for an easy, continuous preview.
-            position = InPoint;
-            _playbackAnchor = InPoint;
+            position = SkipRemoved(InPoint);
+            if (position < 0) position = InPoint;
             _playbackClock.Restart();
+            _lastTickSeconds = 0;
         }
 
         _adjustingTime = true;
@@ -436,6 +722,10 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         ShowPlaybackFrame(PreviewPosition);
         UpdateCameraRect();
     }
+
+    // The earliest playable time at or after <time>, or -1 when only removed clips remain ahead.
+    private double SkipRemoved(double time) =>
+        VideoSpeedGraph.HasRemovals(_segments) ? SpeedSegmentEditor.NextKeptTime(_segments, time) : time;
 
     private void ShowPlaybackFrame(double time)
     {
@@ -529,17 +819,14 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
         try
         {
-            TimeSpan selectionDuration = TimeSpan.FromSeconds(OutPoint - InPoint);
-            (string arguments, IReadOnlyList<string> tempFiles) = BuildExport();
-            VideoEditorExportRequest request = new(arguments, OutputFilePath, selectionDuration, AutoOpenFolder, tempFiles);
+            (string arguments, IReadOnlyList<string> tempFiles, double outputDuration) = BuildExport();
+            VideoEditorExportRequest request = new(arguments, OutputFilePath, TimeSpan.FromSeconds(outputDuration), AutoOpenFolder, tempFiles);
             VideoEditorExportResult result = await _services.Export(request, progress, _operationCancellation.Token);
 
             if (result.Succeeded && !result.WasCancelled)
             {
                 Progress = 100;
-                StatusText = AutoZoomEnabled && _autoZoomPlan.HasZoom
-                    ? $"Auto-zoomed recording saved: {OutputFilePath}"
-                    : $"Edited recording saved: {OutputFilePath}";
+                StatusText = $"Edited recording saved: {OutputFilePath}";
             }
             else if (result.WasCancelled)
             {
@@ -587,6 +874,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _adjustingTime = false;
         StopPlayback();
         InvalidatePlaybackSequence();
+        ReconcileSegments();
     }
 
     partial void OnOutPointChanged(double value)
@@ -598,6 +886,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _adjustingTime = false;
         StopPlayback();
         InvalidatePlaybackSequence();
+        ReconcileSegments();
     }
 
     partial void OnPreviewPositionChanged(double value)
@@ -636,6 +925,12 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     }
 
     partial void OnAutoOpenFolderChanged(bool value) => _options.AutoOpenFolder = value;
+
+    partial void OnIdleThresholdSecondsChanged(double value) => _options.IdleThresholdSeconds = value;
+
+    partial void OnSelectedExportSizeChanged(VideoExportSizeItem value) => _options.ExportMaxHeight = value.MaxHeight;
+
+    partial void OnSelectedExportQualityChanged(VideoExportQualityItem value) => _options.ExportCrf = value.Crf;
 
     partial void OnAutoZoomEnabledChanged(bool value)
     {
@@ -770,15 +1065,60 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _previewCancellation = null;
     }
 
-    private (string Arguments, IReadOnlyList<string> TempFiles) BuildExport()
+    private (string Arguments, IReadOnlyList<string> TempFiles, double OutputDuration) BuildExport()
     {
         Rect crop = GetEvenCrop();
         double length = Math.Max(0.05, OutPoint - InPoint);
         string start = InPoint.ToString("0.###", CultureInfo.InvariantCulture);
         string duration = length.ToString("0.###", CultureInfo.InvariantCulture);
         bool cropNeeded = crop.X != 0 || crop.Y != 0 || crop.Width != SourceWidth || crop.Height != SourceHeight;
+        bool zoomNeeded = AutoZoomEnabled && _autoZoomPlan.HasZoom;
 
-        if (AutoZoomEnabled && _autoZoomPlan.HasZoom)
+        List<SpeedSegment> segments = GetRelativeSegments(length);
+        bool speedNeeded = VideoSpeedGraph.HasEdits(segments);
+
+        string encode = $"-c:v libx264 -preset veryfast -crf {SelectedExportQuality.Crf} -pix_fmt yuv420p -movflags +faststart";
+
+        // Optional downscale cap: computed here so the filter stays a plain even constant.
+        int frameHeight = (int)crop.Height;
+        int maxHeight = SelectedExportSize.MaxHeight;
+        int targetHeight = maxHeight > 0 && frameHeight > maxHeight ? maxHeight : 0;
+        string? scaleFilter = targetHeight > 0 ? $"scale=-2:{targetHeight}" : null;
+
+        if (speedNeeded)
+        {
+            double fps = FramesPerSecond > 0 ? FramesPerSecond : 30;
+            string prefix = string.Empty;
+            string? videoBaseLabel = null;
+
+            if (zoomNeeded)
+            {
+                // Zoom must be applied on the source-clip timeline BEFORE the speed pass: zoompan re-times
+                // its output to a constant fps, so it has to run first, then setpts warps the result.
+                IReadOnlyList<AutoZoomKeyframe> keyframes = [.. _autoZoomPlan.GetKeyframes().Select(k => k with { Time = k.Time - InPoint })];
+                string inputLabel = cropNeeded
+                    ? $"[0:v]crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y},"
+                    : "[0:v]";
+                prefix = AutoZoomFilter.BuildZoomPanFilter(
+                    keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, inputLabel, "[vzoom]") + ";";
+                videoBaseLabel = "[vzoom]";
+            }
+
+            string graph = prefix + VideoSpeedGraph.Build(
+                segments, cropNeeded, (int)crop.X, (int)crop.Y, (int)crop.Width, (int)crop.Height, _hasAudio,
+                scaleFilter != null ? "[vspeed]" : "[v]", videoBaseLabel);
+            if (scaleFilter != null) graph += $";[vspeed]{scaleFilter}[v]";
+
+            string graphFile = WriteGraphFile(graph);
+            string audio = _hasAudio ? "-map \"[a]\" -c:a aac -b:a 128k" : "-an";
+            string arguments =
+                $"-ss {start} -t {duration} -i \"{InputFilePath}\" -filter_complex_script \"{graphFile}\" " +
+                $"-map \"[v]\" {audio} {encode} -y \"{OutputFilePath}\"";
+
+            return (arguments, [graphFile], VideoSpeedGraph.OutputDuration(segments));
+        }
+
+        if (zoomNeeded)
         {
             double fps = FramesPerSecond > 0 ? FramesPerSecond : 30;
             // The export seeks to InPoint (-ss), so zoompan's clock (on/fps) restarts at 0 there. Shift the
@@ -788,30 +1128,36 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
                 ? $"[0:v]crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y},"
                 : "[0:v]";
             string graph = AutoZoomFilter.BuildZoomPanFilter(
-                keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, inputLabel, "[v]");
+                keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, inputLabel,
+                scaleFilter != null ? "[vzoom]" : "[v]");
+            if (scaleFilter != null) graph += $";[vzoom]{scaleFilter}[v]";
 
-            string graphFile = Path.Combine(Path.GetTempPath(), $"ShareX-autozoom-{Guid.NewGuid():N}.txt");
-            File.WriteAllText(graphFile, graph);
+            string graphFile = WriteGraphFile(graph);
 
             string arguments =
                 $"-ss {start} -i \"{InputFilePath}\" -t {duration} -filter_complex_script \"{graphFile}\" " +
-                "-map \"[v]\" -map 0:a? -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p " +
-                "-c:a aac -b:a 128k -movflags +faststart " +
-                $"-y \"{OutputFilePath}\"";
+                $"-map \"[v]\" -map 0:a? {encode} -c:a aac -b:a 128k -y \"{OutputFilePath}\"";
 
-            return (arguments, [graphFile]);
+            return (arguments, [graphFile], length);
         }
 
-        string filter = cropNeeded
-            ? $"-vf \"crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y}\" "
-            : string.Empty;
+        List<string> chain = [];
+        if (cropNeeded) chain.Add($"crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y}");
+        if (scaleFilter != null) chain.Add(scaleFilter);
+        string filter = chain.Count > 0 ? $"-vf \"{string.Join(",", chain)}\" " : string.Empty;
 
         string plain =
             $"-ss {start} -i \"{InputFilePath}\" -t {duration} -map 0:v:0 -map 0:a? {filter}" +
-            "-c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart " +
-            $"-y \"{OutputFilePath}\"";
+            $"{encode} -c:a aac -b:a 128k -y \"{OutputFilePath}\"";
 
-        return (plain, []);
+        return (plain, [], length);
+    }
+
+    private static string WriteGraphFile(string graph)
+    {
+        string graphFile = Path.Combine(Path.GetTempPath(), $"ShareX-videoedit-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(graphFile, graph);
+        return graphFile;
     }
 
     private Rect GetEvenCrop()
@@ -830,6 +1176,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         TimeSpan value = TimeSpan.FromSeconds(Math.Max(0, seconds));
         return value.TotalHours >= 1 ? value.ToString(@"h\:mm\:ss\.fff") : value.ToString(@"m\:ss\.fff");
     }
+
+    private static string FormatSpeed(double speed) =>
+        (speed % 1 == 0 ? speed.ToString("0") : speed.ToString("0.##", CultureInfo.InvariantCulture)) + "×";
 
     private static bool TryParseTime(string? text, out double seconds)
     {

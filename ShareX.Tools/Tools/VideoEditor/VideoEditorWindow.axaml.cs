@@ -13,7 +13,9 @@
 #endregion License Information (GPL v3)
 
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using ShareX.AvaloniaUI.Theming;
@@ -28,7 +30,7 @@ public partial class VideoEditorWindow : Window
         : this(
             new VideoEditorOptions(),
             new VideoEditorServices(
-                (_, _) => Task.FromResult(new VideoEditorMediaInfo(TimeSpan.Zero, 0, 0, 0, "FFmpeg is unavailable.")),
+                (_, _) => Task.FromResult(new VideoEditorMediaInfo(TimeSpan.Zero, 0, 0, 0, false, "FFmpeg is unavailable.")),
                 (_, _, _) => Task.FromResult<byte[]?>(null),
                 (_, _, _, _, _, _) => Task.FromResult<VideoEditorPreviewSequence?>(null),
                 (_, _, _) => Task.FromResult(new VideoEditorExportResult(false, false, "FFmpeg is unavailable."))))
@@ -46,11 +48,67 @@ public partial class VideoEditorWindow : Window
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
+        AddHandler(KeyDownEvent, OnEditorKeyDown, RoutingStrategies.Tunnel);
         Opened += async (_, _) => await _viewModel.InitializeAsync();
         Closed += (_, _) => _viewModel.Dispose();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    // Editor-wide shortcuts, tunneled so they win over focused buttons. Anything that owns text or
+    // list navigation (text boxes, combo boxes, sliders) keeps its keys.
+    private void OnEditorKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (FocusManager?.GetFocusedElement() is TextBox or ComboBox or ComboBoxItem or RangeBase) return;
+
+        bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+
+        switch (e.Key)
+        {
+            case Key.Space:
+                _viewModel.TogglePlaybackCommand.Execute(null);
+                break;
+            case Key.Left when shift:
+                _viewModel.JumpBySeconds(-1);
+                break;
+            case Key.Right when shift:
+                _viewModel.JumpBySeconds(1);
+                break;
+            case Key.Left:
+                _viewModel.StepBackwardCommand.Execute(null);
+                break;
+            case Key.Right:
+                _viewModel.StepForwardCommand.Execute(null);
+                break;
+            case Key.Home:
+                _viewModel.GoToStartCommand.Execute(null);
+                break;
+            case Key.End:
+                _viewModel.GoToEndCommand.Execute(null);
+                break;
+            case Key.I:
+                _viewModel.SetStartCommand.Execute(null);
+                break;
+            case Key.O:
+                _viewModel.SetEndCommand.Execute(null);
+                break;
+            case Key.S when !ctrl:
+                _viewModel.SplitAtPlayheadCommand.Execute(null);
+                break;
+            case Key.Delete:
+            case Key.Back:
+                _viewModel.ToggleRemoveSegmentCommand.Execute(null);
+                break;
+            case Key.Z when ctrl:
+                _viewModel.UndoSegmentEditCommand.Execute(null);
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+    }
 
     private async Task<string?> SelectInputFileAsync(string title)
     {

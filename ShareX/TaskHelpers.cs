@@ -1247,14 +1247,15 @@ namespace ShareX
                     string error = ffmpeg.Output.ToString()
                         .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                         .LastOrDefault();
-                    return new VideoEditorMediaInfo(TimeSpan.Zero, 0, 0, 0, error ?? "ShareX could not read this video.");
+                    return new VideoEditorMediaInfo(TimeSpan.Zero, 0, 0, 0, false, error ?? "ShareX could not read this video.");
                 }
 
                 return new VideoEditorMediaInfo(
                     info.Duration,
                     info.VideoResolution.Width,
                     info.VideoResolution.Height,
-                    info.VideoFPS);
+                    info.VideoFPS,
+                    !string.IsNullOrEmpty(info.AudioCodec));
             }, cancellationToken);
         }
 

@@ -1,7 +1,10 @@
 param(
     [string]$Configuration = "Debug",
     [ValidateSet("x64", "ARM64")]
-    [string]$Platform = "x64"
+    [string]$Platform = "x64",
+    # Where the built ShareX is installed so it survives repo rebuilds and can start with Windows.
+    # Per-user path, so no elevation is needed and the machine-wide Program Files install is left alone.
+    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA "Programs\ShareX")
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,73 +13,107 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repoRoot "ShareX\ShareX.csproj"
 $runtimeIdentifier = if ($Platform -eq "ARM64") { "win-arm64" } else { "win-x64" }
 $outputDirectory = Join-Path $repoRoot "ShareX\bin\$Configuration\$runtimeIdentifier"
-$executablePath = Join-Path $outputDirectory "ShareX.exe"
+$buildExecutablePath = Join-Path $outputDirectory "ShareX.exe"
+$installExecutablePath = Join-Path $InstallDirectory "ShareX.exe"
 
-function Get-RepositoryShareXProcesses {
-    if (-not (Test-Path -LiteralPath $executablePath)) {
-        return @()
-    }
+# --- 1. Force close every running ShareX so nothing locks the build or the install target ---------
 
-    $normalizedExecutablePath = [System.IO.Path]::GetFullPath($executablePath)
-
-    return @(Get-Process -Name "ShareX" -ErrorAction SilentlyContinue |
-        Where-Object {
-            try {
-                $_.Path -and
-                [System.IO.Path]::GetFullPath($_.Path).Equals(
-                    $normalizedExecutablePath,
-                    [System.StringComparison]::OrdinalIgnoreCase)
-            }
-            catch {
-                $false
-            }
-        })
+function Get-ShareXProcesses {
+    return @(Get-Process -Name "ShareX" -ErrorAction SilentlyContinue)
 }
 
-$runningProcesses = @(Get-RepositoryShareXProcesses)
-if ($runningProcesses.Count -gt 0) {
-    Write-Host "Closing the repository ShareX build..."
+$running = Get-ShareXProcesses
+if ($running.Count -gt 0) {
+    Write-Host "Closing $($running.Count) running ShareX process(es)..."
 
-    try {
-        Start-Process -FilePath $executablePath -ArgumentList "-ExitShareX" -WindowStyle Hidden -Wait
+    # Try a graceful exit first (lets ShareX flush its settings), using whichever exe is already on disk.
+    $exitLauncher = @($running | ForEach-Object { $_.Path } | Where-Object { $_ } | Select-Object -First 1)
+    if ($exitLauncher.Count -eq 0 -and (Test-Path -LiteralPath $installExecutablePath)) {
+        $exitLauncher = @($installExecutablePath)
     }
-    catch {
-        Write-Warning "ShareX did not accept the exit command: $($_.Exception.Message)"
+    if ($exitLauncher.Count -gt 0) {
+        try {
+            Start-Process -FilePath $exitLauncher[0] -ArgumentList "-ExitShareX" -WindowStyle Hidden -Wait
+        }
+        catch {
+            Write-Warning "ShareX did not accept the exit command: $($_.Exception.Message)"
+        }
     }
 
-    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    $deadline = [DateTime]::UtcNow.AddSeconds(8)
     do {
         Start-Sleep -Milliseconds 250
-        $runningProcesses = @(Get-RepositoryShareXProcesses)
-    } while ($runningProcesses.Count -gt 0 -and [DateTime]::UtcNow -lt $deadline)
+        $running = Get-ShareXProcesses
+    } while ($running.Count -gt 0 -and [DateTime]::UtcNow -lt $deadline)
 
-    if ($runningProcesses.Count -gt 0) {
-        Write-Host "Stopping the remaining repository ShareX process..."
-        $runningProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force }
-        $runningProcesses | ForEach-Object { Wait-Process -Id $_.Id -Timeout 5 -ErrorAction SilentlyContinue }
+    if ($running.Count -gt 0) {
+        Write-Host "Force stopping $($running.Count) remaining ShareX process(es)..."
+        $running | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
+        $running | ForEach-Object { Wait-Process -Id $_.Id -Timeout 5 -ErrorAction SilentlyContinue }
     }
 }
+
+# --- 2. Build --------------------------------------------------------------------------------------
 
 Write-Host "Building ShareX ($Configuration, $Platform)..."
 & dotnet build $projectPath -c $Configuration "-p:Platform=$Platform" --nologo
 if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+    throw "The ShareX build failed (exit code $LASTEXITCODE)."
 }
 
-$ffmpegPath = Join-Path $outputDirectory "ffmpeg.exe"
-if (-not (Test-Path -LiteralPath $ffmpegPath)) {
+if (-not (Test-Path -LiteralPath $buildExecutablePath)) {
+    throw "The ShareX build completed without producing $buildExecutablePath."
+}
+
+# --- 3. Ensure FFmpeg sits beside the build so the video tools work -------------------------------
+
+$buildFFmpegPath = Join-Path $outputDirectory "ffmpeg.exe"
+if (-not (Test-Path -LiteralPath $buildFFmpegPath)) {
     $systemFFmpeg = Get-Command ffmpeg.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($null -eq $systemFFmpeg) {
         throw "FFmpeg was not found beside ShareX.exe or on PATH. Configure a custom FFmpeg path before testing video tools."
     }
 
     Write-Host "Copying FFmpeg from $($systemFFmpeg.Source)..."
-    Copy-Item -LiteralPath $systemFFmpeg.Source -Destination $ffmpegPath -Force
+    Copy-Item -LiteralPath $systemFFmpeg.Source -Destination $buildFFmpegPath -Force
 }
 
-if (-not (Test-Path -LiteralPath $executablePath)) {
-    throw "The ShareX build completed without producing $executablePath."
+# --- 4. Deploy the fresh build to the stable install directory ------------------------------------
+
+Write-Host "Installing to $InstallDirectory ..."
+if (-not (Test-Path -LiteralPath $InstallDirectory)) {
+    New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
 }
 
-$process = Start-Process -FilePath $executablePath -WorkingDirectory $outputDirectory -PassThru
-Write-Host "Started ShareX PID $($process.Id): $executablePath"
+# robocopy /MIR mirrors the build output into the install dir (adds new files, removes stale ones).
+& robocopy $outputDirectory $InstallDirectory /MIR /NFL /NDL /NJH /NJS /NP /R:3 /W:1 | Out-Null
+# robocopy exit codes 0-7 are success (bit flags); >= 8 means a real failure.
+if ($LASTEXITCODE -ge 8) {
+    throw "Copying the build to $InstallDirectory failed (robocopy exit code $LASTEXITCODE)."
+}
+$global:LASTEXITCODE = 0
+
+if (-not (Test-Path -LiteralPath $installExecutablePath)) {
+    throw "The install completed without producing $installExecutablePath."
+}
+
+# --- 5. Make it start with Windows (per-user Startup shortcut, launched silently to the tray) -----
+
+$startupDirectory = [System.Environment]::GetFolderPath('Startup')
+$shortcutPath = Join-Path $startupDirectory "ShareX.lnk"
+Write-Host "Registering startup shortcut: $shortcutPath -> $installExecutablePath"
+
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = $installExecutablePath
+$shortcut.Arguments = "-silent"
+$shortcut.WorkingDirectory = $InstallDirectory
+$shortcut.IconLocation = $installExecutablePath
+$shortcut.Description = "ShareX (dev build)"
+$shortcut.Save()
+
+# --- 6. Start the freshly installed build ---------------------------------------------------------
+
+$process = Start-Process -FilePath $installExecutablePath -WorkingDirectory $InstallDirectory -PassThru
+Write-Host "Started ShareX PID $($process.Id): $installExecutablePath"
+Write-Host "Done. This build will now launch on sign-in via the Startup shortcut."

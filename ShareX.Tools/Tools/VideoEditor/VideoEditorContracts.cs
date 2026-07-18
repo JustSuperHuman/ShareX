@@ -19,6 +19,7 @@ public sealed record VideoEditorMediaInfo(
     int Width,
     int Height,
     double FramesPerSecond,
+    bool HasAudio = false,
     string? ErrorMessage = null)
 {
     public bool IsValid => Duration > TimeSpan.Zero && Width > 0 && Height > 0;

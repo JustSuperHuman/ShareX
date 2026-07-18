@@ -67,18 +67,18 @@
                             </Border>
 
                             <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
-                                <Button Grid.Column="0" Classes="compact" Command="{Binding StepBackwardCommand}" ToolTip.Tip="Previous frame">
+                                <Button Grid.Column="0" Classes="compact" Command="{Binding StepBackwardCommand}" ToolTip.Tip="Previous frame (Left)">
                                     <TextBlock Text="{x:Static theming:LucideIcons.skip_back}" Classes="icon"/>
                                 </Button>
                                 <Panel Grid.Column="1">
-                                    <Button Classes="compact" Command="{Binding TogglePlaybackCommand}" IsVisible="{Binding !IsPlaying}" ToolTip.Tip="Play">
+                                    <Button Classes="compact" Command="{Binding TogglePlaybackCommand}" IsVisible="{Binding !IsPlaying}" ToolTip.Tip="Play (Space)">
                                         <TextBlock Text="{x:Static theming:LucideIcons.play}" Classes="icon"/>
                                     </Button>
-                                    <Button Classes="compact" Command="{Binding TogglePlaybackCommand}" IsVisible="{Binding IsPlaying}" ToolTip.Tip="Pause">
+                                    <Button Classes="compact" Command="{Binding TogglePlaybackCommand}" IsVisible="{Binding IsPlaying}" ToolTip.Tip="Pause (Space)">
                                         <TextBlock Text="{x:Static theming:LucideIcons.pause}" Classes="icon"/>
                                     </Button>
                                 </Panel>
-                                <Button Grid.Column="2" Classes="compact" Command="{Binding StepForwardCommand}" ToolTip.Tip="Next frame">
+                                <Button Grid.Column="2" Classes="compact" Command="{Binding StepForwardCommand}" ToolTip.Tip="Next frame (Right)">
                                     <TextBlock Text="{x:Static theming:LucideIcons.skip_forward}" Classes="icon"/>
                                 </Button>
                                 <TextBlock Grid.Column="3" Text="{Binding PreviewTimeText}" FontFamily="{DynamicResource ShareX.FontFamily.Monospace}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -91,7 +91,10 @@
                                                            InPoint="{Binding InPoint, Mode=TwoWay}"
                                                            OutPoint="{Binding OutPoint, Mode=TwoWay}"
                                                            Position="{Binding PreviewPosition, Mode=TwoWay}"
-                                                           ZoomRegions="{Binding ZoomRegions}"/>
+                                                           ZoomRegions="{Binding ZoomRegions}"
+                                                           SpeedSegments="{Binding SpeedBands}"
+                                                           ClickMarkers="{Binding ClickMarkers}"
+                                                           SelectedSegment="{Binding SelectedSegmentIndex, Mode=TwoWay}"/>
                         </Grid>
                     </Border>
 
@@ -121,6 +124,79 @@
 
                             <Border Classes="tool-panel" Padding="14">
                                 <StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
+                                        <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.gauge}" Classes="icon" FontSize="15" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="1" Classes="section-heading" Text="Clips" Margin="0" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="2" Classes="compact" Command="{Binding UndoSegmentEditCommand}" IsEnabled="{Binding CanUndo}" ToolTip.Tip="Undo last clip change (Ctrl+Z)">
+                                            <TextBlock Text="{x:Static theming:LucideIcons.undo}" Classes="icon"/>
+                                        </Button>
+                                        <Button Grid.Column="3" Classes="compact" Command="{Binding ResetSpeedsCommand}" ToolTip.Tip="Clear all speed and cut changes">
+                                            <TextBlock Text="{x:Static theming:LucideIcons.undo_2}" Classes="icon"/>
+                                        </Button>
+                                    </Grid>
+                                    <TextBlock Text="Split the recording at the playhead, then speed up or cut each clip." Classes="field-label" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,10,0,0">
+                                        <Button Grid.Column="0" Command="{Binding SplitAtPlayheadCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Split at playhead (S)">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{x:Static theming:LucideIcons.split}" Classes="icon"/>
+                                                <TextBlock Text="Split"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Panel Grid.Column="1">
+                                            <Button Command="{Binding ToggleRemoveSegmentCommand}" IsVisible="{Binding !SelectedSegmentRemoved}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Cut the highlighted clip out of the video (Delete)">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{x:Static theming:LucideIcons.scissors}" Classes="icon"/>
+                                                    <TextBlock Text="Cut clip"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Command="{Binding ToggleRemoveSegmentCommand}" IsVisible="{Binding SelectedSegmentRemoved}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Put the cut clip back (Delete)">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{x:Static theming:LucideIcons.redo}" Classes="icon"/>
+                                                    <TextBlock Text="Restore clip"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Panel>
+                                    </Grid>
+                                    <TextBlock Text="{Binding SelectedSegmentText}" Foreground="{DynamicResource ShareX.Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,6" FontSize="11"/>
+                                    <UniformGrid Columns="3" Rows="2">
+                                        <Button Classes="compact" Content="0.25×" Command="{Binding SetSegmentSpeedCommand}" CommandParameter="0.25" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="compact" Content="0.5×" Command="{Binding SetSegmentSpeedCommand}" CommandParameter="0.5" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="compact" Content="1×" Command="{Binding SetSegmentSpeedCommand}" CommandParameter="1" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="compact" Content="1.5×" Command="{Binding SetSegmentSpeedCommand}" CommandParameter="1.5" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="compact" Content="2×" Command="{Binding SetSegmentSpeedCommand}" CommandParameter="2" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="compact" Content="4×" Command="{Binding SetSegmentSpeedCommand}" CommandParameter="4" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </UniformGrid>
+                                    <TextBlock Text="{Binding SpeedSummaryText}" Foreground="{DynamicResource ShareX.Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="11"/>
+
+                                    <StackPanel IsVisible="{Binding HasMotionData}">
+                                        <Separator Margin="0,12,0,10"/>
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.mouse_pointer_click}" Classes="icon" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Idle moments" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding IdleThresholdText}" Classes="field-label" Margin="0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="Uses the recorded mouse activity to find stretches where nothing happened." Classes="field-label" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                        <Slider Minimum="1" Maximum="6" Value="{Binding IdleThresholdSeconds}" TickFrequency="0.5" IsSnapToTickEnabled="True" ToolTip.Tip="How long the mouse must stay still to count as idle"/>
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                            <Button Grid.Column="0" Command="{Binding FastForwardIdleCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Play idle stretches at 4× instead of cutting them">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{x:Static theming:LucideIcons.fast_forward}" Classes="icon"/>
+                                                    <TextBlock Text="Speed up"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Grid.Column="1" Command="{Binding CutIdleCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Cut idle stretches out of the video entirely">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{x:Static theming:LucideIcons.scissors}" Classes="icon"/>
+                                                    <TextBlock Text="Cut out"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Classes="tool-panel" Padding="14">
+                                <StackPanel>
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Classes="section-heading" Text="Trim"/>
                                         <Button Grid.Column="1" Classes="compact" Command="{Binding ResetTrimCommand}" ToolTip.Tip="Reset trim">
@@ -138,8 +214,8 @@
                                         </StackPanel>
                                     </Grid>
                                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,10,0,0">
-                                        <Button Grid.Column="0" Content="Set start" Command="{Binding SetStartCommand}"/>
-                                        <Button Grid.Column="1" Content="Set end" Command="{Binding SetEndCommand}"/>
+                                        <Button Grid.Column="0" Content="Set start" Command="{Binding SetStartCommand}" ToolTip.Tip="Trim the start to the playhead (I)"/>
+                                        <Button Grid.Column="1" Content="Set end" Command="{Binding SetEndCommand}" ToolTip.Tip="Trim the end to the playhead (O)"/>
                                     </Grid>
                                     <TextBlock Text="{Binding SelectionDurationText, StringFormat=Selected: {0}}" Foreground="{DynamicResource ShareX.Brush.Text.Secondary}" Margin="0,10,0,0"/>
                                 </StackPanel>
@@ -188,7 +264,7 @@
 
                 <Border Grid.Row="2" Classes="tool-panel" Padding="12">
                     <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="9">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Classes="field-label" Text="Save as"/>
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -199,7 +275,27 @@
                                 </Grid>
                                 <TextBlock Classes="path-text" Text="{Binding OutputFilePath}" FontSize="11" Margin="0,4,0,0"/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" IsChecked="{Binding AutoOpenFolder}" IsEnabled="{Binding IsIdle}" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="field-label" Text="Size"/>
+                                <ComboBox ItemsSource="{x:Static vm:VideoEditorViewModel.ExportSizes}" SelectedItem="{Binding SelectedExportSize}" IsEnabled="{Binding IsIdle}" MinWidth="118">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VideoExportSizeItem">
+                                            <TextBlock Text="{Binding DisplayName}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="field-label" Text="Quality"/>
+                                <ComboBox ItemsSource="{x:Static vm:VideoEditorViewModel.ExportQualities}" SelectedItem="{Binding SelectedExportQuality}" IsEnabled="{Binding IsIdle}" MinWidth="112">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VideoExportQualityItem">
+                                            <TextBlock Text="{Binding DisplayName}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <CheckBox Grid.Column="3" IsChecked="{Binding AutoOpenFolder}" IsEnabled="{Binding IsIdle}" VerticalAlignment="Center">
                                 <TextBlock Text="Open folder when finished" FontWeight="Normal"/>
                             </CheckBox>
                         </Grid>

@@ -19,4 +19,7 @@ public sealed class VideoEditorOptions
     public bool AutoOpenFolder { get; set; } = true;
     public double AutoZoomAmount { get; set; } = 1.8;
     public double AutoZoomSmoothness { get; set; } = 0.5;
+    public double IdleThresholdSeconds { get; set; } = 2;
+    public int ExportMaxHeight { get; set; } = 0;
+    public int ExportCrf { get; set; } = 18;
 }
