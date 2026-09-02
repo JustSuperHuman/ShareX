@@ -20,6 +20,12 @@ public sealed class VideoEditorOptions
     public double AutoZoomAmount { get; set; } = 1.8;
     public double AutoZoomSmoothness { get; set; } = 0.5;
     public double IdleThresholdSeconds { get; set; } = 2;
+    public bool EffectClickRipples { get; set; }
+    public bool EffectSpotlight { get; set; }
+    public double SpotlightSize { get; set; } = 0.22;
+    public bool EffectStudioBackground { get; set; }
+    public string StudioStyle { get; set; } = "Midnight";
+    public bool EffectProgressBar { get; set; }
     public int ExportMaxHeight { get; set; } = 0;
     public int ExportCrf { get; set; } = 18;
 }

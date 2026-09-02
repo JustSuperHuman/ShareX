@@ -949,7 +949,7 @@
     <value>1</value>
   </data>
   <data name="gbFirefox.Location" type="System.Drawing.Point, System.Drawing">
-    <value>8, 240</value>
+    <value>8, 264</value>
   </data>
   <data name="gbFirefox.Size" type="System.Drawing.Size, System.Drawing">
     <value>536, 88</value>
@@ -1003,7 +1003,7 @@
     <value>0</value>
   </data>
   <data name="gbSteam.Location" type="System.Drawing.Point, System.Drawing">
-    <value>8, 336</value>
+    <value>8, 360</value>
   </data>
   <data name="gbSteam.Size" type="System.Drawing.Size, System.Drawing">
     <value>536, 56</value>
@@ -1085,7 +1085,7 @@
     <value>1</value>
   </data>
   <data name="gbChrome.Location" type="System.Drawing.Point, System.Drawing">
-    <value>8, 144</value>
+    <value>8, 168</value>
   </data>
   <data name="gbChrome.Size" type="System.Drawing.Size, System.Drawing">
     <value>536, 88</value>
@@ -1136,6 +1136,36 @@
     <value>gbWindows</value>
   </data>
   <data name="&gt;&gt;cbEditWithShareX.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="cbEditVideoWithShareX.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="cbEditVideoWithShareX.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="cbEditVideoWithShareX.Location" type="System.Drawing.Point, System.Drawing">
+    <value>16, 96</value>
+  </data>
+  <data name="cbEditVideoWithShareX.Size" type="System.Drawing.Size, System.Drawing">
+    <value>384, 17</value>
+  </data>
+  <data name="cbEditVideoWithShareX.TabIndex" type="System.Int32, mscorlib">
+    <value>4</value>
+  </data>
+  <data name="cbEditVideoWithShareX.Text" xml:space="preserve">
+    <value>Show "Edit with ShareX" button in Windows Explorer context menu for videos</value>
+  </data>
+  <data name="&gt;&gt;cbEditVideoWithShareX.Name" xml:space="preserve">
+    <value>cbEditVideoWithShareX</value>
+  </data>
+  <data name="&gt;&gt;cbEditVideoWithShareX.Type" xml:space="preserve">
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cbEditVideoWithShareX.Parent" xml:space="preserve">
+    <value>gbWindows</value>
+  </data>
+  <data name="&gt;&gt;cbEditVideoWithShareX.ZOrder" xml:space="preserve">
     <value>0</value>
   </data>
   <data name="cbStartWithWindows.AutoSize" type="System.Boolean, mscorlib">
@@ -1163,7 +1193,7 @@
     <value>gbWindows</value>
   </data>
   <data name="&gt;&gt;cbStartWithWindows.ZOrder" xml:space="preserve">
-    <value>1</value>
+    <value>2</value>
   </data>
   <data name="cbSendToMenu.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -1172,7 +1202,7 @@
     <value>NoControl</value>
   </data>
   <data name="cbSendToMenu.Location" type="System.Drawing.Point, System.Drawing">
-    <value>16, 96</value>
+    <value>16, 120</value>
   </data>
   <data name="cbSendToMenu.Size" type="System.Drawing.Size, System.Drawing">
     <value>181, 17</value>
@@ -1193,7 +1223,7 @@
     <value>gbWindows</value>
   </data>
   <data name="&gt;&gt;cbSendToMenu.ZOrder" xml:space="preserve">
-    <value>2</value>
+    <value>3</value>
   </data>
   <data name="cbShellContextMenu.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -1223,13 +1253,13 @@
     <value>gbWindows</value>
   </data>
   <data name="&gt;&gt;cbShellContextMenu.ZOrder" xml:space="preserve">
-    <value>3</value>
+    <value>4</value>
   </data>
   <data name="gbWindows.Location" type="System.Drawing.Point, System.Drawing">
     <value>8, 8</value>
   </data>
   <data name="gbWindows.Size" type="System.Drawing.Size, System.Drawing">
-    <value>536, 128</value>
+    <value>536, 152</value>
   </data>
   <data name="gbWindows.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>

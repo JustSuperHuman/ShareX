@@ -40,6 +40,39 @@ public sealed class VideoCropControl : Control
     public static readonly StyledProperty<Rect> CameraRectProperty =
         AvaloniaProperty.Register<VideoCropControl, Rect>(nameof(CameraRect));
 
+    public static readonly StyledProperty<double> PreviewTimeProperty =
+        AvaloniaProperty.Register<VideoCropControl, double>(nameof(PreviewTime));
+
+    public static readonly StyledProperty<IReadOnlyList<VideoClickHighlight>?> ClickHighlightsProperty =
+        AvaloniaProperty.Register<VideoCropControl, IReadOnlyList<VideoClickHighlight>?>(nameof(ClickHighlights));
+
+    public static readonly StyledProperty<bool> ShowClickRipplesProperty =
+        AvaloniaProperty.Register<VideoCropControl, bool>(nameof(ShowClickRipples));
+
+    public static readonly StyledProperty<bool> ShowSpotlightProperty =
+        AvaloniaProperty.Register<VideoCropControl, bool>(nameof(ShowSpotlight));
+
+    public static readonly StyledProperty<Point> SpotlightCenterProperty =
+        AvaloniaProperty.Register<VideoCropControl, Point>(nameof(SpotlightCenter), new Point(0.5, 0.5));
+
+    public static readonly StyledProperty<double> SpotlightSizeProperty =
+        AvaloniaProperty.Register<VideoCropControl, double>(nameof(SpotlightSize), 0.22);
+
+    public static readonly StyledProperty<bool> ShowProgressBarProperty =
+        AvaloniaProperty.Register<VideoCropControl, bool>(nameof(ShowProgressBar));
+
+    public static readonly StyledProperty<double> ProgressFractionProperty =
+        AvaloniaProperty.Register<VideoCropControl, double>(nameof(ProgressFraction));
+
+    public static readonly StyledProperty<bool> ShowStudioBackgroundProperty =
+        AvaloniaProperty.Register<VideoCropControl, bool>(nameof(ShowStudioBackground));
+
+    public static readonly StyledProperty<Color> StudioTopColorProperty =
+        AvaloniaProperty.Register<VideoCropControl, Color>(nameof(StudioTopColor), Color.FromRgb(49, 46, 129));
+
+    public static readonly StyledProperty<Color> StudioBottomColorProperty =
+        AvaloniaProperty.Register<VideoCropControl, Color>(nameof(StudioBottomColor), Color.FromRgb(15, 23, 42));
+
     private const double HandleRadius = 6;
     private const double MinimumCropPixels = 16;
     private CropHandle _activeHandle;
@@ -48,7 +81,11 @@ public sealed class VideoCropControl : Control
 
     static VideoCropControl()
     {
-        AffectsRender<VideoCropControl>(PreviewImageProperty, SourceWidthProperty, SourceHeightProperty, CropRectProperty, CameraRectProperty);
+        AffectsRender<VideoCropControl>(PreviewImageProperty, SourceWidthProperty, SourceHeightProperty, CropRectProperty, CameraRectProperty,
+            PreviewTimeProperty, ClickHighlightsProperty, ShowClickRipplesProperty,
+            ShowSpotlightProperty, SpotlightCenterProperty, SpotlightSizeProperty,
+            ShowProgressBarProperty, ProgressFractionProperty,
+            ShowStudioBackgroundProperty, StudioTopColorProperty, StudioBottomColorProperty);
     }
 
     public VideoCropControl()
@@ -62,6 +99,17 @@ public sealed class VideoCropControl : Control
     public int SourceHeight { get => GetValue(SourceHeightProperty); set => SetValue(SourceHeightProperty, value); }
     public Rect CropRect { get => GetValue(CropRectProperty); set => SetValue(CropRectProperty, value); }
     public Rect CameraRect { get => GetValue(CameraRectProperty); set => SetValue(CameraRectProperty, value); }
+    public double PreviewTime { get => GetValue(PreviewTimeProperty); set => SetValue(PreviewTimeProperty, value); }
+    public IReadOnlyList<VideoClickHighlight>? ClickHighlights { get => GetValue(ClickHighlightsProperty); set => SetValue(ClickHighlightsProperty, value); }
+    public bool ShowClickRipples { get => GetValue(ShowClickRipplesProperty); set => SetValue(ShowClickRipplesProperty, value); }
+    public bool ShowSpotlight { get => GetValue(ShowSpotlightProperty); set => SetValue(ShowSpotlightProperty, value); }
+    public Point SpotlightCenter { get => GetValue(SpotlightCenterProperty); set => SetValue(SpotlightCenterProperty, value); }
+    public double SpotlightSize { get => GetValue(SpotlightSizeProperty); set => SetValue(SpotlightSizeProperty, value); }
+    public bool ShowProgressBar { get => GetValue(ShowProgressBarProperty); set => SetValue(ShowProgressBarProperty, value); }
+    public double ProgressFraction { get => GetValue(ProgressFractionProperty); set => SetValue(ProgressFractionProperty, value); }
+    public bool ShowStudioBackground { get => GetValue(ShowStudioBackgroundProperty); set => SetValue(ShowStudioBackgroundProperty, value); }
+    public Color StudioTopColor { get => GetValue(StudioTopColorProperty); set => SetValue(StudioTopColorProperty, value); }
+    public Color StudioBottomColor { get => GetValue(StudioBottomColorProperty); set => SetValue(StudioBottomColorProperty, value); }
 
     private bool CameraActive => CameraRect.Width > 0 && CameraRect.Height > 0;
 
@@ -84,7 +132,23 @@ public sealed class VideoCropControl : Control
         Rect imageBounds = GetImageBounds();
         context.DrawImage(PreviewImage, new Rect(0, 0, PreviewImage.PixelSize.Width, PreviewImage.PixelSize.Height), imageBounds);
 
-        Rect crop = SourceToDisplay(NormalizeCrop(CropRect), imageBounds);
+        Rect cropSource = NormalizeCrop(CropRect);
+        Rect crop = SourceToDisplay(cropSource, imageBounds);
+
+        // The exported frame is the crop region; the studio backdrop wraps it and insets the video, so
+        // the cursor effects have to be mapped into the inset area to stay aligned.
+        Rect effectsWindow = new(0, 0, SourceWidth, SourceHeight);
+        Rect effectsRect = imageBounds;
+        if (ShowStudioBackground)
+        {
+            effectsRect = DrawStudioPreview(context, cropSource, crop);
+            effectsWindow = cropSource;
+        }
+
+        DrawSpotlight(context, effectsWindow, effectsRect);
+        DrawClickRipples(context, effectsWindow, effectsRect);
+
+        DrawProgressBar(context, crop);
         IBrush overlay = GetBrush("ShareX.Brush.Overlay.Modal", new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)));
         IBrush accent = GetBrush("ShareX.Brush.Accent.Start", new SolidColorBrush(Color.Parse("#3E83F2")));
         IBrush handle = GetBrush("ShareX.Brush.Text", Brushes.White);
@@ -225,7 +289,147 @@ public sealed class VideoCropControl : Control
         }
         Rect dest = new((Bounds.Width - width) / 2, (Bounds.Height - height) / 2, width, height);
 
-        context.DrawImage(PreviewImage, sourceRect, dest);
+        Rect effectsRect = dest;
+        if (ShowStudioBackground)
+        {
+            effectsRect = DrawStudioPreview(context, CameraRect, dest);
+        }
+        else
+        {
+            context.DrawImage(PreviewImage, sourceRect, dest);
+        }
+
+        DrawSpotlight(context, CameraRect, effectsRect);
+        DrawClickRipples(context, CameraRect, effectsRect);
+        DrawProgressBar(context, dest);
+    }
+
+    // WYSIWYG approximation of the export's studio background: the frame area fills with the gradient
+    // backdrop and the video re-renders inset with rounded corners and a simple shadow. Returns the
+    // inset rectangle the video now occupies so later effect layers can map into it.
+    private Rect DrawStudioPreview(DrawingContext context, Rect sourceWindow, Rect frameRect)
+    {
+        const double inset = 0.88; // keep in sync with VideoEffectsGraph.StudioInset
+
+        LinearGradientBrush gradient = new()
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
+            GradientStops =
+            {
+                new GradientStop(StudioTopColor, 0),
+                new GradientStop(StudioBottomColor, 1)
+            }
+        };
+        context.FillRectangle(gradient, frameRect);
+
+        double videoWidth = frameRect.Width * inset;
+        double videoHeight = frameRect.Height * inset;
+        Rect video = new(frameRect.X + (frameRect.Width - videoWidth) / 2, frameRect.Y + (frameRect.Height - videoHeight) / 2, videoWidth, videoHeight);
+        double radius = Math.Max(3, Math.Min(videoWidth, videoHeight) * 0.03);
+
+        Rect shadow = video.Translate(new Vector(0, videoHeight * 0.025)).Inflate(radius * 0.6);
+        context.DrawRectangle(new SolidColorBrush(Color.FromArgb(90, 0, 0, 0)), null, shadow, radius * 2, radius * 2);
+
+        if (PreviewImage != null && sourceWindow.Width > 0 && sourceWindow.Height > 0)
+        {
+            double bitmapScaleX = PreviewImage.PixelSize.Width / (double)Math.Max(1, SourceWidth);
+            double bitmapScaleY = PreviewImage.PixelSize.Height / (double)Math.Max(1, SourceHeight);
+            Rect bitmapSource = new(
+                sourceWindow.X * bitmapScaleX,
+                sourceWindow.Y * bitmapScaleY,
+                sourceWindow.Width * bitmapScaleX,
+                sourceWindow.Height * bitmapScaleY);
+
+            using DrawingContext.PushedState clip = context.PushClip(new RoundedRect(video, radius));
+            context.DrawImage(PreviewImage, bitmapSource, video);
+        }
+
+        return video;
+    }
+
+    // Mirrors the export's bottom progress bar over whichever rectangle stands in for the output frame.
+    // A faint track is always drawn so enabling the effect is visible even with the playhead at 0.
+    private void DrawProgressBar(DrawingContext context, Rect frame)
+    {
+        if (!ShowProgressBar || frame.Width <= 0) return;
+
+        double barHeight = Math.Max(3, frame.Height / 72);
+        Rect track = new(frame.X, frame.Bottom - barHeight, frame.Width, barHeight);
+        context.FillRectangle(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), track);
+
+        double width = frame.Width * Math.Clamp(ProgressFraction, 0, 1);
+        if (width <= 0) return;
+
+        LinearGradientBrush brush = new()
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(1, 0, RelativeUnit.Relative),
+            GradientStops =
+            {
+                new GradientStop(Color.FromArgb(230, 62, 131, 242), 0),
+                new GradientStop(Color.FromArgb(230, 111, 76, 255), 1)
+            }
+        };
+        context.FillRectangle(brush, new Rect(frame.X, frame.Bottom - barHeight, width, barHeight));
+    }
+
+    // Approximates the export's cursor spotlight: everything outside a circle around the cursor is
+    // dimmed (the export adds a soft edge the preview skips).
+    private void DrawSpotlight(DrawingContext context, Rect sourceWindow, Rect displayRect)
+    {
+        if (!ShowSpotlight || sourceWindow.Width <= 0 || SourceWidth <= 0) return;
+
+        double scale = displayRect.Width / sourceWindow.Width;
+        Point center = new(
+            displayRect.X + (SpotlightCenter.X * SourceWidth - sourceWindow.X) * scale,
+            displayRect.Y + (SpotlightCenter.Y * SourceHeight - sourceWindow.Y) * (displayRect.Height / sourceWindow.Height));
+        double radius = Math.Min(SourceWidth, SourceHeight) * Math.Clamp(SpotlightSize, 0.05, 0.5) * scale;
+
+        GeometryGroup dimShape = new()
+        {
+            FillRule = FillRule.EvenOdd,
+            Children =
+            {
+                new RectangleGeometry(displayRect),
+                new EllipseGeometry { Center = center, RadiusX = radius, RadiusY = radius }
+            }
+        };
+
+        using DrawingContext.PushedState clip = context.PushClip(displayRect);
+        context.DrawGeometry(new SolidColorBrush(Color.FromArgb(140, 0, 0, 0)), null, dimShape);
+    }
+
+    // Draws the same click pulse the export renders, mapped from source pixels through whichever view
+    // (full frame or auto-zoom camera window) is on screen.
+    private void DrawClickRipples(DrawingContext context, Rect sourceWindow, Rect displayRect)
+    {
+        if (!ShowClickRipples || ClickHighlights is not { Count: > 0 } clicks || sourceWindow.Width <= 0) return;
+
+        const double rippleSeconds = 0.42;
+        double time = PreviewTime;
+        double scale = displayRect.Width / sourceWindow.Width;
+        double canvas = Math.Max(28, Math.Min(SourceWidth, SourceHeight) * 0.13);
+
+        using DrawingContext.PushedState clip = context.PushClip(displayRect);
+        foreach (VideoClickHighlight click in clicks)
+        {
+            double age = time - click.Time;
+            if (age < 0 || age > rippleSeconds) continue;
+
+            double progress = age / rippleSeconds;
+            double sourceX = click.X * SourceWidth;
+            double sourceY = click.Y * SourceHeight;
+            Point center = new(
+                displayRect.X + (sourceX - sourceWindow.X) * scale,
+                displayRect.Y + (sourceY - sourceWindow.Y) * (displayRect.Height / sourceWindow.Height));
+
+            double radius = (0.18 + 0.30 * progress) * canvas * scale;
+            byte alpha = (byte)(Math.Clamp(1 - progress, 0, 1) * 200);
+            Pen ring = new(new SolidColorBrush(Color.FromArgb(alpha, 255, 202, 87)), Math.Max(1.5, 2.5 * scale));
+            IBrush fill = new SolidColorBrush(Color.FromArgb((byte)(alpha / 4), 255, 202, 87));
+            context.DrawEllipse(fill, ring, center, radius, radius);
+        }
     }
 
     private Rect GetImageBounds()

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Loose-registered package that gives the ShareX dev install enough package identity to host the
+  Windows 11 File Explorer "Edit with ShareX" context menu entry for videos (IExplorerCommand COM
+  server, see ShareX.ShellExtension). The install script copies this file to the install directory,
+  which becomes the package root; ShareX itself keeps running as a normal unpackaged win32 app.
+  Registration happens from ShareX's Integration settings (requires Windows 11 and, for unsigned dev
+  builds, Developer Mode).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+  IgnorableNamespaces="uap uap10 rescap com desktop4 desktop5">
+
+  <Identity Name="ShareX.ShellExtension" ProcessorArchitecture="x64" Publisher="CN=ShareX Team" Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>ShareX Shell Extension</DisplayName>
+    <PublisherDisplayName>ShareX Team</PublisherDisplayName>
+    <Logo>Assets\ShareX_Logo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26200.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+
+  <Applications>
+    <Application Id="ShareX" Executable="ShareX.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
+      <uap:VisualElements
+        DisplayName="ShareX Shell Extension"
+        Description="Adds the ShareX video editor to the File Explorer context menu"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\ShareX_Logo.png"
+        Square44x44Logo="Assets\ShareX_Logo.png"
+        AppListEntry="none" />
+      <Extensions>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:SurrogateServer DisplayName="ShareX Video Editor Context Menu">
+              <com:Class Id="71102C74-9458-49E2-B70B-2A0E790ED36B" Path="ShareX.ShellExtension.comhost.dll" ThreadingModel="STA" />
+            </com:SurrogateServer>
+          </com:ComServer>
+        </com:Extension>
+        <desktop4:Extension Category="windows.fileExplorerContextMenus">
+          <desktop4:FileExplorerContextMenus>
+            <desktop5:ItemType Type=".mp4">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type=".mkv">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type=".webm">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type=".avi">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type=".mov">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type=".m4v">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type=".wmv">
+              <desktop5:Verb Id="ShareXEditVideo" Clsid="71102C74-9458-49E2-B70B-2A0E790ED36B" />
+            </desktop5:ItemType>
+          </desktop4:FileExplorerContextMenus>
+        </desktop4:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>

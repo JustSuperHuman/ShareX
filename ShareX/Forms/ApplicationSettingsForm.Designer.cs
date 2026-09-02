@@ -72,6 +72,7 @@ namespace ShareX
             this.btnChromeOpenExtensionPage = new System.Windows.Forms.Button();
             this.gbWindows = new System.Windows.Forms.GroupBox();
             this.cbEditWithShareX = new System.Windows.Forms.CheckBox();
+            this.cbEditVideoWithShareX = new System.Windows.Forms.CheckBox();
             this.cbStartWithWindows = new System.Windows.Forms.CheckBox();
             this.cbSendToMenu = new System.Windows.Forms.CheckBox();
             this.cbShellContextMenu = new System.Windows.Forms.CheckBox();
@@ -528,6 +529,7 @@ namespace ShareX
             // 
             // gbWindows
             // 
+            this.gbWindows.Controls.Add(this.cbEditVideoWithShareX);
             this.gbWindows.Controls.Add(this.cbEditWithShareX);
             this.gbWindows.Controls.Add(this.cbStartWithWindows);
             this.gbWindows.Controls.Add(this.cbSendToMenu);
@@ -542,9 +544,16 @@ namespace ShareX
             this.cbEditWithShareX.Name = "cbEditWithShareX";
             this.cbEditWithShareX.UseVisualStyleBackColor = true;
             this.cbEditWithShareX.CheckedChanged += new System.EventHandler(this.cbEditWithShareX_CheckedChanged);
-            // 
+            //
+            // cbEditVideoWithShareX
+            //
+            resources.ApplyResources(this.cbEditVideoWithShareX, "cbEditVideoWithShareX");
+            this.cbEditVideoWithShareX.Name = "cbEditVideoWithShareX";
+            this.cbEditVideoWithShareX.UseVisualStyleBackColor = true;
+            this.cbEditVideoWithShareX.CheckedChanged += new System.EventHandler(this.cbEditVideoWithShareX_CheckedChanged);
+            //
             // cbStartWithWindows
-            // 
+            //
             resources.ApplyResources(this.cbStartWithWindows, "cbStartWithWindows");
             this.cbStartWithWindows.Name = "cbStartWithWindows";
             this.cbStartWithWindows.UseVisualStyleBackColor = true;
@@ -1592,6 +1601,7 @@ namespace ShareX
         private System.Windows.Forms.CheckBox cbFirefoxAddonSupport;
         private System.Windows.Forms.Button btnResetSettings;
         private System.Windows.Forms.CheckBox cbEditWithShareX;
+        private System.Windows.Forms.CheckBox cbEditVideoWithShareX;
         private System.Windows.Forms.Button btnCheckDevBuild;
         private System.Windows.Forms.Button btnPersonalFolderPathApply;
         private System.Windows.Forms.CheckBox cbUseWhiteShareXIcon;

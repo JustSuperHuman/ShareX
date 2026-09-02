@@ -149,12 +149,14 @@ namespace ShareX
 #if MicrosoftStore
             cbShellContextMenu.Visible = false;
             cbEditWithShareX.Visible = false;
+            cbEditVideoWithShareX.Visible = false;
             cbSendToMenu.Visible = false;
             gbChrome.Visible = false;
             gbFirefox.Visible = false;
 #else
             cbShellContextMenu.Checked = IntegrationHelpers.CheckShellContextMenuButton();
             cbEditWithShareX.Checked = IntegrationHelpers.CheckEditShellContextMenuButton();
+            cbEditVideoWithShareX.Checked = IntegrationHelpers.CheckEditVideoShellContextMenuButton();
             cbSendToMenu.Checked = IntegrationHelpers.CheckSendToMenuButton();
             cbChromeExtensionSupport.Checked = IntegrationHelpers.CheckChromeExtensionSupport();
             btnChromeOpenExtensionPage.Enabled = cbChromeExtensionSupport.Checked;
@@ -609,6 +611,14 @@ namespace ShareX
             if (ready)
             {
                 IntegrationHelpers.CreateEditShellContextMenuButton(cbEditWithShareX.Checked);
+            }
+        }
+
+        private void cbEditVideoWithShareX_CheckedChanged(object sender, EventArgs e)
+        {
+            if (ready)
+            {
+                IntegrationHelpers.CreateEditVideoShellContextMenuButton(cbEditVideoWithShareX.Checked);
             }
         }
 

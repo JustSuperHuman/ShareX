@@ -30,6 +30,21 @@ public sealed record VideoExportSizeItem(string DisplayName, int MaxHeight);
 
 public sealed record VideoExportQualityItem(string DisplayName, int Crf);
 
+public sealed record VideoStudioStyleItem(string DisplayName, (byte R, byte G, byte B) Top, (byte R, byte G, byte B) Bottom)
+{
+    // The diagonal gradient shown on the style's picker card — same direction the export renders.
+    public Avalonia.Media.IBrush PreviewBrush { get; } = new Avalonia.Media.LinearGradientBrush
+    {
+        StartPoint = new Avalonia.RelativePoint(0, 0, Avalonia.RelativeUnit.Relative),
+        EndPoint = new Avalonia.RelativePoint(1, 1, Avalonia.RelativeUnit.Relative),
+        GradientStops =
+        {
+            new Avalonia.Media.GradientStop(Avalonia.Media.Color.FromRgb(Top.R, Top.G, Top.B), 0),
+            new Avalonia.Media.GradientStop(Avalonia.Media.Color.FromRgb(Bottom.R, Bottom.G, Bottom.B), 1)
+        }
+    };
+}
+
 public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 {
     public static IReadOnlyList<VideoCropAspectItem> CropAspects { get; } =
@@ -59,6 +74,22 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         new("High quality", 18),
         new("Balanced", 23),
         new("Smaller file", 28)
+    ];
+
+    public static IReadOnlyList<VideoStudioStyleItem> StudioStyles { get; } =
+    [
+        new("Midnight", (49, 46, 129), (15, 23, 42)),
+        new("Ocean", (14, 165, 233), (30, 58, 138)),
+        new("Sunset", (249, 115, 22), (124, 58, 237)),
+        new("Forest", (16, 185, 129), (6, 78, 59)),
+        new("Graphite", (63, 63, 70), (24, 24, 27)),
+        new("Aurora", (34, 211, 238), (99, 102, 241)),
+        new("Candy", (244, 114, 182), (251, 146, 60)),
+        new("Crimson", (244, 63, 94), (76, 5, 25)),
+        new("Lavender", (196, 181, 253), (109, 40, 217)),
+        new("Gold", (251, 191, 36), (146, 64, 14)),
+        new("Mint", (110, 231, 183), (13, 148, 136)),
+        new("Steel", (148, 163, 184), (51, 65, 85))
     ];
 
     private const double IdleFastForwardSpeed = 4;
@@ -185,6 +216,8 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AutoZoomAvailable))]
+    [NotifyPropertyChangedFor(nameof(SpotlightPreviewActive))]
+    [NotifyPropertyChangedFor(nameof(RipplePreviewActive))]
     private bool _hasMotionData;
 
     [ObservableProperty]
@@ -216,6 +249,33 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     private IReadOnlyList<double> _clickMarkers = [];
 
     [ObservableProperty]
+    private IReadOnlyList<VideoClickHighlight> _clickHighlights = [];
+
+    [ObservableProperty]
+    private bool _effectClickRipples;
+
+    [ObservableProperty]
+    private bool _effectSpotlight;
+
+    [ObservableProperty]
+    private double _spotlightSize = 0.22;
+
+    [ObservableProperty]
+    private Point _spotlightCenter = new(0.5, 0.5);
+
+    [ObservableProperty]
+    private bool _effectStudioBackground;
+
+    [ObservableProperty]
+    private VideoStudioStyleItem _selectedStudioStyle = StudioStyles[0];
+
+    [ObservableProperty]
+    private bool _effectProgressBar;
+
+    [ObservableProperty]
+    private double _progressBarFraction;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IdleThresholdText))]
     private double _idleThresholdSeconds;
 
@@ -233,6 +293,12 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _autoZoomAmount = options.AutoZoomAmount;
         _autoZoomSmoothness = options.AutoZoomSmoothness;
         _idleThresholdSeconds = Math.Clamp(options.IdleThresholdSeconds, 0.5, 10);
+        _effectClickRipples = options.EffectClickRipples;
+        _effectSpotlight = options.EffectSpotlight;
+        _spotlightSize = Math.Clamp(options.SpotlightSize, 0.1, 0.4);
+        _effectStudioBackground = options.EffectStudioBackground;
+        _selectedStudioStyle = StudioStyles.FirstOrDefault(s => s.DisplayName == options.StudioStyle) ?? StudioStyles[0];
+        _effectProgressBar = options.EffectProgressBar;
         _selectedExportSize = ExportSizes.FirstOrDefault(s => s.MaxHeight == options.ExportMaxHeight) ?? ExportSizes[0];
         _selectedExportQuality = ExportQualities.FirstOrDefault(q => q.Crf == options.ExportCrf) ?? ExportQualities[0];
         InputFilePath = inputFilePath ?? string.Empty;
@@ -249,6 +315,10 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     private bool HasKeptClip => _segments.Count == 0 || _segments.Any(s => !s.Removed);
     public bool HasNoPreview => PreviewImage == null;
     public bool AutoZoomAvailable => HasMotionData;
+    public bool SpotlightPreviewActive => EffectSpotlight && HasMotionData;
+    public bool RipplePreviewActive => EffectClickRipples && HasMotionData;
+    public Avalonia.Media.Color StudioTopColor => Avalonia.Media.Color.FromRgb(SelectedStudioStyle.Top.R, SelectedStudioStyle.Top.G, SelectedStudioStyle.Top.B);
+    public Avalonia.Media.Color StudioBottomColor => Avalonia.Media.Color.FromRgb(SelectedStudioStyle.Bottom.R, SelectedStudioStyle.Bottom.G, SelectedStudioStyle.Bottom.B);
     public string InputFileDisplay => string.IsNullOrWhiteSpace(InputFilePath) ? "No file selected" : InputFilePath;
     public string SourceInfoText => SourceWidth <= 0 ? string.Empty : $"{SourceWidth} × {SourceHeight}  •  {FramesPerSecond:0.##} fps";
     public string DurationText => FormatTime(Duration);
@@ -411,6 +481,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         HasMotionData = _motionData is { HasSamples: true };
         ClickMarkers = HasMotionData && _motionData?.Clicks != null
             ? [.. _motionData.Clicks.Select(c => (double)c.T)]
+            : [];
+        ClickHighlights = HasMotionData && _motionData?.Clicks != null
+            ? [.. _motionData.Clicks.Select(c => new VideoClickHighlight(c.T, c.X, c.Y))]
             : [];
         RebuildAutoZoomPlan();
     }
@@ -618,6 +691,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(SelectedSegmentText));
         OnPropertyChanged(nameof(SpeedSummaryText));
         OnPropertyChanged(nameof(CanExport));
+        UpdateProgressBarFraction();
     }
 
     // Current segments expressed in the trimmed clip's own timeline (0-based, matching an input-seeked
@@ -928,6 +1002,40 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     partial void OnIdleThresholdSecondsChanged(double value) => _options.IdleThresholdSeconds = value;
 
+    partial void OnEffectClickRipplesChanged(bool value)
+    {
+        _options.EffectClickRipples = value;
+        OnPropertyChanged(nameof(RipplePreviewActive));
+    }
+
+    partial void OnEffectSpotlightChanged(bool value)
+    {
+        _options.EffectSpotlight = value;
+        OnPropertyChanged(nameof(SpotlightPreviewActive));
+        UpdateSpotlightCenter();
+    }
+
+    partial void OnSpotlightSizeChanged(double value) => _options.SpotlightSize = value;
+
+    partial void OnEffectStudioBackgroundChanged(bool value)
+    {
+        _options.EffectStudioBackground = value;
+        if (value) StatusText = "Studio background on — the preview and the export are framed on the backdrop.";
+    }
+
+    partial void OnSelectedStudioStyleChanged(VideoStudioStyleItem value)
+    {
+        _options.StudioStyle = value.DisplayName;
+        OnPropertyChanged(nameof(StudioTopColor));
+        OnPropertyChanged(nameof(StudioBottomColor));
+    }
+
+    partial void OnEffectProgressBarChanged(bool value)
+    {
+        _options.EffectProgressBar = value;
+        UpdateProgressBarFraction();
+    }
+
     partial void OnSelectedExportSizeChanged(VideoExportSizeItem value) => _options.ExportMaxHeight = value.MaxHeight;
 
     partial void OnSelectedExportQualityChanged(VideoExportQualityItem value) => _options.ExportCrf = value.Crf;
@@ -985,6 +1093,27 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         {
             CameraRect = default;
         }
+
+        UpdateSpotlightCenter();
+        UpdateProgressBarFraction();
+    }
+
+    private void UpdateSpotlightCenter()
+    {
+        if (EffectSpotlight && _motionData is { HasSamples: true })
+        {
+            (double x, double y) = VideoEffectsGraph.SampleCursor(_motionData.Samples, PreviewPosition);
+            SpotlightCenter = new Point(x, y);
+        }
+    }
+
+    private void UpdateProgressBarFraction()
+    {
+        if (!EffectProgressBar) return;
+        double total = VideoSpeedGraph.OutputDuration(SpeedSegmentEditor.Reconcile(_segments, InPoint, OutPoint));
+        ProgressBarFraction = total > 0
+            ? Math.Clamp(VideoSpeedGraph.OutputTimeAt(_segments, PreviewPosition) / total, 0, 1)
+            : 0;
     }
 
     private void ApplyCropPreset(VideoCropAspectItem aspect)
@@ -1073,84 +1202,102 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         string duration = length.ToString("0.###", CultureInfo.InvariantCulture);
         bool cropNeeded = crop.X != 0 || crop.Y != 0 || crop.Width != SourceWidth || crop.Height != SourceHeight;
         bool zoomNeeded = AutoZoomEnabled && _autoZoomPlan.HasZoom;
+        double fps = FramesPerSecond > 0 ? FramesPerSecond : 30;
 
         List<SpeedSegment> segments = GetRelativeSegments(length);
         bool speedNeeded = VideoSpeedGraph.HasEdits(segments);
+        double outputDuration = speedNeeded ? VideoSpeedGraph.OutputDuration(segments) : length;
 
         string encode = $"-c:v libx264 -preset veryfast -crf {SelectedExportQuality.Crf} -pix_fmt yuv420p -movflags +faststart";
 
-        // Optional downscale cap: computed here so the filter stays a plain even constant.
-        int frameHeight = (int)crop.Height;
-        int maxHeight = SelectedExportSize.MaxHeight;
-        int targetHeight = maxHeight > 0 && frameHeight > maxHeight ? maxHeight : 0;
-        string? scaleFilter = targetHeight > 0 ? $"scale=-2:{targetHeight}" : null;
+        // The export is one linear pipeline; stages that are off simply don't emit filters.
+        // Order matters: source-space effects (ripples) ride along with auto-zoom, speed warps last so
+        // every earlier stage stays on the source clock, then output-space stages (scale) run.
+        ExportGraphBuilder graph = new();
+        string current = "[0:v]";
 
-        if (speedNeeded)
+        if (cropNeeded)
         {
-            double fps = FramesPerSecond > 0 ? FramesPerSecond : 30;
-            string prefix = string.Empty;
-            string? videoBaseLabel = null;
+            current = graph.Chain(current, $"crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y}");
+        }
 
-            if (zoomNeeded)
-            {
-                // Zoom must be applied on the source-clip timeline BEFORE the speed pass: zoompan re-times
-                // its output to a constant fps, so it has to run first, then setpts warps the result.
-                IReadOnlyList<AutoZoomKeyframe> keyframes = [.. _autoZoomPlan.GetKeyframes().Select(k => k with { Time = k.Time - InPoint })];
-                string inputLabel = cropNeeded
-                    ? $"[0:v]crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y},"
-                    : "[0:v]";
-                prefix = AutoZoomFilter.BuildZoomPanFilter(
-                    keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, inputLabel, "[vzoom]") + ";";
-                videoBaseLabel = "[vzoom]";
-            }
+        if (EffectSpotlight && _motionData is { HasSamples: true })
+        {
+            List<(double T, double X, double Y)> cursorPath = VideoEffectsGraph.DecimateCursorPath(_motionData.Samples, InPoint, length);
+            current = VideoEffectsGraph.AddSpotlight(graph, current, cursorPath, SourceWidth, SourceHeight, crop, SpotlightSize, length, fps);
+        }
 
-            string graph = prefix + VideoSpeedGraph.Build(
-                segments, cropNeeded, (int)crop.X, (int)crop.Y, (int)crop.Width, (int)crop.Height, _hasAudio,
-                scaleFilter != null ? "[vspeed]" : "[v]", videoBaseLabel);
-            if (scaleFilter != null) graph += $";[vspeed]{scaleFilter}[v]";
-
-            string graphFile = WriteGraphFile(graph);
-            string audio = _hasAudio ? "-map \"[a]\" -c:a aac -b:a 128k" : "-an";
-            string arguments =
-                $"-ss {start} -t {duration} -i \"{InputFilePath}\" -filter_complex_script \"{graphFile}\" " +
-                $"-map \"[v]\" {audio} {encode} -y \"{OutputFilePath}\"";
-
-            return (arguments, [graphFile], VideoSpeedGraph.OutputDuration(segments));
+        // Ripples draw after the spotlight so click pulses stay bright inside the dimmed area.
+        if (EffectClickRipples && _motionData?.Clicks is { Count: > 0 })
+        {
+            List<VideoClickHighlight> clicks = VideoEffectsGraph.ResolveClicks(_motionData.Clicks, InPoint, length);
+            current = VideoEffectsGraph.AddClickRipples(graph, current, clicks, SourceWidth, SourceHeight, crop);
         }
 
         if (zoomNeeded)
         {
-            double fps = FramesPerSecond > 0 ? FramesPerSecond : 30;
             // The export seeks to InPoint (-ss), so zoompan's clock (on/fps) restarts at 0 there. Shift the
             // plan's absolute keyframe times into the trimmed clip's timeline.
             IReadOnlyList<AutoZoomKeyframe> keyframes = [.. _autoZoomPlan.GetKeyframes().Select(k => k with { Time = k.Time - InPoint })];
-            string inputLabel = cropNeeded
-                ? $"[0:v]crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y},"
-                : "[0:v]";
-            string graph = AutoZoomFilter.BuildZoomPanFilter(
-                keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, inputLabel,
-                scaleFilter != null ? "[vzoom]" : "[v]");
-            if (scaleFilter != null) graph += $";[vzoom]{scaleFilter}[v]";
-
-            string graphFile = WriteGraphFile(graph);
-
-            string arguments =
-                $"-ss {start} -i \"{InputFilePath}\" -t {duration} -filter_complex_script \"{graphFile}\" " +
-                $"-map \"[v]\" -map 0:a? {encode} -c:a aac -b:a 128k -y \"{OutputFilePath}\"";
-
-            return (arguments, [graphFile], length);
+            string zoomOut = graph.NewLabel();
+            graph.Parts.Add(AutoZoomFilter.BuildZoomPanFilter(
+                keyframes, SourceWidth, SourceHeight, crop, (int)crop.Width, (int)crop.Height, fps, current, zoomOut));
+            current = zoomOut;
         }
 
-        List<string> chain = [];
-        if (cropNeeded) chain.Add($"crop={(int)crop.Width}:{(int)crop.Height}:{(int)crop.X}:{(int)crop.Y}");
-        if (scaleFilter != null) chain.Add(scaleFilter);
-        string filter = chain.Count > 0 ? $"-vf \"{string.Join(",", chain)}\" " : string.Empty;
+        if (speedNeeded)
+        {
+            // zoompan re-times its output to a constant fps, so the speed pass must run after it.
+            string speedOut = graph.NewLabel();
+            graph.Parts.Add(VideoSpeedGraph.Build(segments, false, 0, 0, 0, 0, _hasAudio, speedOut, current));
+            current = speedOut;
+        }
 
-        string plain =
-            $"-ss {start} -i \"{InputFilePath}\" -t {duration} -map 0:v:0 -map 0:a? {filter}" +
-            $"{encode} -c:a aac -b:a 128k -y \"{OutputFilePath}\"";
+        // Optional downscale cap. Dimensions are computed here as exact even constants because later
+        // stages (studio background) need to know the true frame size.
+        int frameWidth = (int)crop.Width;
+        int frameHeight = (int)crop.Height;
+        int maxHeight = SelectedExportSize.MaxHeight;
+        if (maxHeight > 0 && frameHeight > maxHeight)
+        {
+            frameWidth = Math.Max(2, (int)Math.Round(frameWidth * (maxHeight / (double)frameHeight)) / 2 * 2);
+            frameHeight = maxHeight;
+            current = graph.Chain(current, $"scale={frameWidth}:{frameHeight}");
+        }
 
-        return (plain, [], length);
+        if (EffectStudioBackground)
+        {
+            current = VideoEffectsGraph.AddStudioBackground(
+                graph, current, frameWidth, frameHeight, SelectedStudioStyle.Top, SelectedStudioStyle.Bottom);
+        }
+
+        if (EffectProgressBar)
+        {
+            current = VideoEffectsGraph.AddProgressBar(graph, current, frameWidth, frameHeight, outputDuration);
+        }
+
+        if (!graph.HasFilters)
+        {
+            string plain =
+                $"-ss {start} -i \"{InputFilePath}\" -t {duration} -map 0:v:0 -map 0:a? " +
+                $"{encode} -c:a aac -b:a 128k -y \"{OutputFilePath}\"";
+            return (plain, [], length);
+        }
+
+        string graphFile = WriteGraphFile(graph.BuildGraph(current));
+        List<string> tempFiles = [.. graph.TempFiles, graphFile];
+
+        string audio = speedNeeded
+            ? (_hasAudio ? "-map \"[a]\" -c:a aac -b:a 128k" : "-an")
+            : "-map 0:a? -c:a aac -b:a 128k";
+        string inputs = string.Join(" ", graph.ExtraInputs);
+        if (inputs.Length > 0) inputs += " ";
+
+        string arguments =
+            $"-ss {start} -t {duration} -i \"{InputFilePath}\" {inputs}-filter_complex_script \"{graphFile}\" " +
+            $"-map \"[v]\" {audio} {encode} -y \"{OutputFilePath}\"";
+
+        return (arguments, tempFiles, outputDuration);
     }
 
     private static string WriteGraphFile(string graph)

@@ -78,6 +78,37 @@ if (-not (Test-Path -LiteralPath $buildFFmpegPath)) {
     Copy-Item -LiteralPath $systemFFmpeg.Source -Destination $buildFFmpegPath -Force
 }
 
+# --- 3b. Stage the Explorer context menu package beside the build ---------------------------------
+# The Windows 11 "Edit with ShareX" video entry is an IExplorerCommand COM server registered through
+# a loose package. Its files ship in the install directory: the comhost DLL, the AppxManifest that
+# turns the directory into the package root, and the logo assets the manifest references.
+
+$shellProjectPath = Join-Path $repoRoot "ShareX.ShellExtension\ShareX.ShellExtension.csproj"
+Write-Host "Building ShareX.ShellExtension..."
+& dotnet build $shellProjectPath -c $Configuration --nologo
+if ($LASTEXITCODE -ne 0) {
+    throw "The ShareX.ShellExtension build failed (exit code $LASTEXITCODE)."
+}
+
+$shellOutputDirectory = Join-Path $repoRoot "ShareX.ShellExtension\bin\$Configuration"
+if (-not (Test-Path -LiteralPath (Join-Path $shellOutputDirectory "ShareX.ShellExtension.comhost.dll"))) {
+    $shellOutputDirectory = Join-Path $shellOutputDirectory "net9.0-windows"
+}
+foreach ($fileName in "ShareX.ShellExtension.dll", "ShareX.ShellExtension.comhost.dll", "ShareX.ShellExtension.runtimeconfig.json", "ShareX.ShellExtension.deps.json") {
+    $sourcePath = Join-Path $shellOutputDirectory $fileName
+    if (Test-Path -LiteralPath $sourcePath) {
+        Copy-Item -LiteralPath $sourcePath -Destination $outputDirectory -Force
+    }
+    elseif ($fileName -like "*.dll") {
+        throw "The ShareX.ShellExtension build completed without producing $sourcePath."
+    }
+}
+
+Copy-Item -LiteralPath (Join-Path $repoRoot "ShareX.ShellExtension\AppxManifest.xml") -Destination $outputDirectory -Force
+$assetsDirectory = Join-Path $outputDirectory "Assets"
+New-Item -ItemType Directory -Path $assetsDirectory -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $repoRoot "ShareX.HelpersLib\Resources\ShareX_Logo.png") -Destination (Join-Path $assetsDirectory "ShareX_Logo.png") -Force
+
 # --- 4. Deploy the fresh build to the stable install directory ------------------------------------
 
 Write-Host "Installing to $InstallDirectory ..."

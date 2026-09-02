@@ -53,6 +53,30 @@ public static class VideoSpeedGraph
         return total;
     }
 
+    // Output-clock time reached when the source playhead sits at <sourceTime> — maps preview position
+    // onto the exported timeline (removed clips contribute nothing, sped clips compress).
+    public static double OutputTimeAt(IReadOnlyList<SpeedSegment> segments, double sourceTime)
+    {
+        double elapsed = 0;
+        foreach (SpeedSegment segment in segments)
+        {
+            if (sourceTime >= segment.End)
+            {
+                elapsed += segment.OutputDuration;
+            }
+            else if (sourceTime > segment.Start)
+            {
+                if (!segment.Removed && segment.Speed > 1e-6) elapsed += (sourceTime - segment.Start) / segment.Speed;
+                break;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return elapsed;
+    }
+
     // The speed in effect at a source time — drives the WYSIWYG preview clock.
     public static double SpeedAt(IReadOnlyList<SpeedSegment> segments, double sourceTime)
     {
