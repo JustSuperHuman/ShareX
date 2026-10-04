@@ -25,7 +25,8 @@ namespace ShareX
         Continue,
         EditVideo,
         CopyFilePath,
-        CopyFile
+        CopyFile,
+        EditWithCapCut
     }
 
     public sealed class ScreenRecordingQuickTaskMenu
@@ -80,6 +81,10 @@ namespace ShareX
                 ToolStripMenuItem editItem = new ToolStripMenuItem(Resources.ScreenRecordingQuickTaskMenu_EditVideo, Resources.camcorder_pencil);
                 editItem.Click += (sender, e) => SelectAction(ScreenRecordingQuickTaskAction.EditVideo);
                 menu.Items.Add(editItem);
+
+                ToolStripMenuItem capCutItem = new ToolStripMenuItem(Resources.ScreenRecordingQuickTaskMenu_EditWithCapCut, Resources.camcorder_pencil);
+                capCutItem.Click += (sender, e) => SelectAction(ScreenRecordingQuickTaskAction.EditWithCapCut);
+                menu.Items.Add(capCutItem);
             }
 
             ToolStripMenuItem copyPathItem = new ToolStripMenuItem(

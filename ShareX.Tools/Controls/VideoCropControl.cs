@@ -73,6 +73,17 @@ public sealed class VideoCropControl : Control
     public static readonly StyledProperty<Color> StudioBottomColorProperty =
         AvaloniaProperty.Register<VideoCropControl, Color>(nameof(StudioBottomColor), Color.FromRgb(15, 23, 42));
 
+    // The replacement cursor sprite, sized in source pixels, with its hotspot in sprite pixels and its
+    // position normalized (0..1) inside the source frame.
+    public static readonly StyledProperty<Bitmap?> CursorImageProperty =
+        AvaloniaProperty.Register<VideoCropControl, Bitmap?>(nameof(CursorImage));
+
+    public static readonly StyledProperty<Point> CursorHotspotProperty =
+        AvaloniaProperty.Register<VideoCropControl, Point>(nameof(CursorHotspot));
+
+    public static readonly StyledProperty<Point> CursorPositionProperty =
+        AvaloniaProperty.Register<VideoCropControl, Point>(nameof(CursorPosition), new Point(0.5, 0.5));
+
     private const double HandleRadius = 6;
     private const double MinimumCropPixels = 16;
     private CropHandle _activeHandle;
@@ -85,7 +96,8 @@ public sealed class VideoCropControl : Control
             PreviewTimeProperty, ClickHighlightsProperty, ShowClickRipplesProperty,
             ShowSpotlightProperty, SpotlightCenterProperty, SpotlightSizeProperty,
             ShowProgressBarProperty, ProgressFractionProperty,
-            ShowStudioBackgroundProperty, StudioTopColorProperty, StudioBottomColorProperty);
+            ShowStudioBackgroundProperty, StudioTopColorProperty, StudioBottomColorProperty,
+            CursorImageProperty, CursorHotspotProperty, CursorPositionProperty);
     }
 
     public VideoCropControl()
@@ -110,6 +122,9 @@ public sealed class VideoCropControl : Control
     public bool ShowStudioBackground { get => GetValue(ShowStudioBackgroundProperty); set => SetValue(ShowStudioBackgroundProperty, value); }
     public Color StudioTopColor { get => GetValue(StudioTopColorProperty); set => SetValue(StudioTopColorProperty, value); }
     public Color StudioBottomColor { get => GetValue(StudioBottomColorProperty); set => SetValue(StudioBottomColorProperty, value); }
+    public Bitmap? CursorImage { get => GetValue(CursorImageProperty); set => SetValue(CursorImageProperty, value); }
+    public Point CursorHotspot { get => GetValue(CursorHotspotProperty); set => SetValue(CursorHotspotProperty, value); }
+    public Point CursorPosition { get => GetValue(CursorPositionProperty); set => SetValue(CursorPositionProperty, value); }
 
     private bool CameraActive => CameraRect.Width > 0 && CameraRect.Height > 0;
 
@@ -147,6 +162,7 @@ public sealed class VideoCropControl : Control
 
         DrawSpotlight(context, effectsWindow, effectsRect);
         DrawClickRipples(context, effectsWindow, effectsRect);
+        DrawCursor(context, effectsWindow, effectsRect);
 
         DrawProgressBar(context, crop);
         IBrush overlay = GetBrush("ShareX.Brush.Overlay.Modal", new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)));
@@ -301,6 +317,7 @@ public sealed class VideoCropControl : Control
 
         DrawSpotlight(context, CameraRect, effectsRect);
         DrawClickRipples(context, CameraRect, effectsRect);
+        DrawCursor(context, CameraRect, effectsRect);
         DrawProgressBar(context, dest);
     }
 
@@ -430,6 +447,23 @@ public sealed class VideoCropControl : Control
             IBrush fill = new SolidColorBrush(Color.FromArgb((byte)(alpha / 4), 255, 202, 87));
             context.DrawEllipse(fill, ring, center, radius, radius);
         }
+    }
+
+    // Draws the replacement cursor where the export will, scaled with whichever view is on screen.
+    private void DrawCursor(DrawingContext context, Rect sourceWindow, Rect displayRect)
+    {
+        if (CursorImage is not { } image || sourceWindow.Width <= 0 || sourceWindow.Height <= 0) return;
+
+        double scaleX = displayRect.Width / sourceWindow.Width;
+        double scaleY = displayRect.Height / sourceWindow.Height;
+        Rect destination = new(
+            displayRect.X + (CursorPosition.X * SourceWidth - sourceWindow.X - CursorHotspot.X) * scaleX,
+            displayRect.Y + (CursorPosition.Y * SourceHeight - sourceWindow.Y - CursorHotspot.Y) * scaleY,
+            image.PixelSize.Width * scaleX,
+            image.PixelSize.Height * scaleY);
+
+        using DrawingContext.PushedState clip = context.PushClip(displayRect);
+        context.DrawImage(image, new Rect(0, 0, image.PixelSize.Width, image.PixelSize.Height), destination);
     }
 
     private Rect GetImageBounds()

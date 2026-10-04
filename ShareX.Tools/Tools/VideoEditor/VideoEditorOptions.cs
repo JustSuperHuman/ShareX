@@ -26,6 +26,12 @@ public sealed class VideoEditorOptions
     public bool EffectStudioBackground { get; set; }
     public string StudioStyle { get; set; } = "Midnight";
     public bool EffectProgressBar { get; set; }
+    // When on, new recordings are captured without the system cursor and a smoothed replacement is
+    // drawn from the recorded mouse track instead.
+    public bool SmoothCursor { get; set; }
+    public string CursorStyle { get; set; } = "Classic";
+    public double CursorSize { get; set; } = 1.5;
+    public double CursorSmoothing { get; set; } = 0.5;
     public int ExportMaxHeight { get; set; } = 0;
     public int ExportCrf { get; set; } = 18;
 }

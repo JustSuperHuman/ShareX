@@ -2474,6 +2474,33 @@ namespace ShareX.Properties {
                 return ResourceManager.GetString("ScreenRecordingQuickTaskMenu_EditVideo", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Edit with CapCut.
+        /// </summary>
+        internal static string ScreenRecordingQuickTaskMenu_EditWithCapCut {
+            get {
+                return ResourceManager.GetString("ScreenRecordingQuickTaskMenu_EditWithCapCut", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Adding your smooth cursor to the recording....
+        /// </summary>
+        internal static string ScreenRecordManager_AddingSmoothCursor {
+            get {
+                return ResourceManager.GetString("ScreenRecordManager_AddingSmoothCursor", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to CapCut could not be found. Install CapCut Desktop, then try again. Your recording has been saved.
+        /// </summary>
+        internal static string CapCutIntegration_NotInstalled {
+            get {
+                return ResourceManager.GetString("CapCutIntegration_NotInstalled", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Reset all quick tasks to defaults?.

@@ -78,10 +78,28 @@ namespace ShareX.HelpersLib
         public int CaptureWidth { get; set; }
         public int CaptureHeight { get; set; }
         public float Duration { get; set; }
+        // True when the video was captured without the system cursor, so a replacement can be drawn.
+        public bool CursorHidden { get; set; }
         public List<ScreenRecordingMotionSample> Samples { get; set; } = new List<ScreenRecordingMotionSample>();
         public List<ScreenRecordingMotionClick> Clicks { get; set; } = new List<ScreenRecordingMotionClick>();
 
         public bool HasSamples => Samples != null && Samples.Count > 1;
+
+        // Adds a later recording segment (after a pause) whose clock starts at <offset> seconds.
+        public void Append(ScreenRecordingMotionData segment, float offset)
+        {
+            foreach (ScreenRecordingMotionSample sample in segment.Samples)
+            {
+                Samples.Add(new ScreenRecordingMotionSample(sample.T + offset, sample.X, sample.Y));
+            }
+
+            foreach (ScreenRecordingMotionClick click in segment.Clicks)
+            {
+                Clicks.Add(new ScreenRecordingMotionClick(click.T + offset, click.X, click.Y));
+            }
+
+            Duration = offset + segment.Duration;
+        }
 
         public static string GetSidecarPath(string videoFilePath)
         {

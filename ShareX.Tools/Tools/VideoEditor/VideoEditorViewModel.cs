@@ -92,6 +92,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         new("Steel", (148, 163, 184), (51, 65, 85))
     ];
 
+    public static IReadOnlyList<VideoCursorStyleItem> CursorStyles { get; } =
+        [.. VideoCursorArt.Styles.Select(s => new VideoCursorStyleItem(s.Id, s.DisplayName))];
+
     private const double IdleFastForwardSpeed = 4;
 
     private const double PlaybackFrameRate = 15;
@@ -117,6 +120,8 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     private ScreenRecordingMotionData? _motionData;
     private AutoZoomPlan _autoZoomPlan = AutoZoomPlan.Empty;
+    private VideoCursorPath? _cursorPath;
+    private VideoCursorSprite? _cursorSprite;
 
     // The speed segments always cover [InPoint, OutPoint] contiguously; each plays at its own multiplier.
     private List<SpeedSegment> _segments = [];
@@ -273,6 +278,31 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     private bool _effectProgressBar;
 
     [ObservableProperty]
+    private bool _smoothCursorEnabled;
+
+    // True when the loaded recording was captured without the system cursor, so one can be drawn in.
+    [ObservableProperty]
+    private bool _cursorReplaceable;
+
+    [ObservableProperty]
+    private VideoCursorStyleItem _selectedCursorStyle = CursorStyles[0];
+
+    [ObservableProperty]
+    private double _cursorSize = 1.5;
+
+    [ObservableProperty]
+    private double _cursorSmoothing = 0.5;
+
+    [ObservableProperty]
+    private Bitmap? _cursorImage;
+
+    [ObservableProperty]
+    private Point _cursorHotspot;
+
+    [ObservableProperty]
+    private Point _cursorPosition = new(0.5, 0.5);
+
+    [ObservableProperty]
     private double _progressBarFraction;
 
     [ObservableProperty]
@@ -299,6 +329,10 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _effectStudioBackground = options.EffectStudioBackground;
         _selectedStudioStyle = StudioStyles.FirstOrDefault(s => s.DisplayName == options.StudioStyle) ?? StudioStyles[0];
         _effectProgressBar = options.EffectProgressBar;
+        _smoothCursorEnabled = options.SmoothCursor;
+        _selectedCursorStyle = CursorStyles.FirstOrDefault(s => s.Id == options.CursorStyle) ?? CursorStyles[0];
+        _cursorSize = Math.Clamp(options.CursorSize, 0.75, 3);
+        _cursorSmoothing = Math.Clamp(options.CursorSmoothing, 0, 1);
         _selectedExportSize = ExportSizes.FirstOrDefault(s => s.MaxHeight == options.ExportMaxHeight) ?? ExportSizes[0];
         _selectedExportQuality = ExportQualities.FirstOrDefault(q => q.Crf == options.ExportCrf) ?? ExportQualities[0];
         InputFilePath = inputFilePath ?? string.Empty;
@@ -319,6 +353,25 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     public bool RipplePreviewActive => EffectClickRipples && HasMotionData;
     public Avalonia.Media.Color StudioTopColor => Avalonia.Media.Color.FromRgb(SelectedStudioStyle.Top.R, SelectedStudioStyle.Top.G, SelectedStudioStyle.Top.B);
     public Avalonia.Media.Color StudioBottomColor => Avalonia.Media.Color.FromRgb(SelectedStudioStyle.Bottom.R, SelectedStudioStyle.Bottom.G, SelectedStudioStyle.Bottom.B);
+    public bool HasCursorNotice => CursorNoticeText.Length > 0;
+
+    public string CursorNoticeText
+    {
+        get
+        {
+            if (CursorReplaceable)
+            {
+                return SmoothCursorEnabled ? string.Empty : "This recording was captured without the Windows cursor. Leave this off to export it with no cursor at all.";
+            }
+
+            if (!SmoothCursorEnabled) return string.Empty;
+
+            return SourceWidth > 0
+                ? "The Windows cursor is already part of this recording, so it stays as it is. Recordings you make from now on get this cursor instead."
+                : "Recordings you make from now on get this cursor instead of the Windows one.";
+        }
+    }
+
     public string InputFileDisplay => string.IsNullOrWhiteSpace(InputFilePath) ? "No file selected" : InputFilePath;
     public string SourceInfoText => SourceWidth <= 0 ? string.Empty : $"{SourceWidth} × {SourceHeight}  •  {FramesPerSecond:0.##} fps";
     public string DurationText => FormatTime(Duration);
@@ -485,7 +538,45 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         ClickHighlights = HasMotionData && _motionData?.Clicks != null
             ? [.. _motionData.Clicks.Select(c => new VideoClickHighlight(c.T, c.X, c.Y))]
             : [];
+        CursorReplaceable = HasMotionData && _motionData!.CursorHidden;
+        RebuildCursorPath();
+        RefreshCursorSprite();
         RebuildAutoZoomPlan();
+    }
+
+    private void RebuildCursorPath()
+    {
+        _cursorPath = CursorReplaceable ? VideoCursorPath.Build(_motionData, CursorSmoothing) : null;
+        UpdateCursorPosition();
+    }
+
+    // Re-renders the cursor at the size this recording needs; the same sprite feeds the preview and the export.
+    private void RefreshCursorSprite()
+    {
+        Bitmap? previous = CursorImage;
+
+        if (SmoothCursorEnabled && CursorReplaceable && SourceWidth > 0 && SourceHeight > 0)
+        {
+            _cursorSprite = VideoCursorArt.Render(SelectedCursorStyle.Id, VideoCursorArt.GetSpriteSize(SourceWidth, SourceHeight, CursorSize));
+            CursorHotspot = new Point(_cursorSprite.HotspotX, _cursorSprite.HotspotY);
+            CursorImage = new Bitmap(new MemoryStream(_cursorSprite.Png, writable: false));
+        }
+        else
+        {
+            _cursorSprite = null;
+            CursorImage = null;
+        }
+
+        previous?.Dispose();
+        OnPropertyChanged(nameof(CursorNoticeText));
+        OnPropertyChanged(nameof(HasCursorNotice));
+    }
+
+    private void UpdateCursorPosition()
+    {
+        if (_cursorPath == null) return;
+        (double x, double y) = _cursorPath.Sample(PreviewPosition);
+        CursorPosition = new Point(x, y);
     }
 
     [RelayCommand]
@@ -1036,6 +1127,31 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         UpdateProgressBarFraction();
     }
 
+    partial void OnSmoothCursorEnabledChanged(bool value)
+    {
+        _options.SmoothCursor = value;
+        RefreshCursorSprite();
+    }
+
+    partial void OnSelectedCursorStyleChanged(VideoCursorStyleItem value)
+    {
+        if (value is null) return;
+        _options.CursorStyle = value.Id;
+        RefreshCursorSprite();
+    }
+
+    partial void OnCursorSizeChanged(double value)
+    {
+        _options.CursorSize = value;
+        RefreshCursorSprite();
+    }
+
+    partial void OnCursorSmoothingChanged(double value)
+    {
+        _options.CursorSmoothing = value;
+        RebuildCursorPath();
+    }
+
     partial void OnSelectedExportSizeChanged(VideoExportSizeItem value) => _options.ExportMaxHeight = value.MaxHeight;
 
     partial void OnSelectedExportQualityChanged(VideoExportQualityItem value) => _options.ExportCrf = value.Crf;
@@ -1095,6 +1211,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         }
 
         UpdateSpotlightCenter();
+        UpdateCursorPosition();
         UpdateProgressBarFraction();
     }
 
@@ -1234,6 +1351,13 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
             current = VideoEffectsGraph.AddClickRipples(graph, current, clicks, SourceWidth, SourceHeight, crop);
         }
 
+        // The cursor goes on top of the other source-space effects and is magnified by auto-zoom along
+        // with the content, exactly like a real one would be.
+        if (_cursorPath != null && _cursorSprite != null)
+        {
+            current = VideoCursorGraph.AddCursor(graph, current, _cursorPath, _cursorSprite, InPoint, length, SourceWidth, SourceHeight, crop);
+        }
+
         if (zoomNeeded)
         {
             // The export seeks to InPoint (-ss), so zoompan's clock (on/fps) restarts at 0 there. Shift the
@@ -1349,5 +1473,6 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _operationCancellation?.Cancel();
         _operationCancellation?.Dispose();
         PreviewImage?.Dispose();
+        CursorImage?.Dispose();
     }
 }

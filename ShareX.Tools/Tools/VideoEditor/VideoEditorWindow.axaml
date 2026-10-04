@@ -96,7 +96,10 @@
                                                                ProgressFraction="{Binding ProgressBarFraction}"
                                                                ShowStudioBackground="{Binding EffectStudioBackground}"
                                                                StudioTopColor="{Binding StudioTopColor}"
-                                                               StudioBottomColor="{Binding StudioBottomColor}"/>
+                                                               StudioBottomColor="{Binding StudioBottomColor}"
+                                                               CursorImage="{Binding CursorImage}"
+                                                               CursorHotspot="{Binding CursorHotspot}"
+                                                               CursorPosition="{Binding CursorPosition}"/>
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding HasNoPreview}">
                                         <TextBlock Text="{x:Static theming:LucideIcons.file_video}" Classes="icon" FontSize="34" HorizontalAlignment="Center"/>
                                         <TextBlock Text="Choose a recording to preview it" Margin="0,10,0,0"/>
@@ -158,6 +161,54 @@
                                         <Slider Minimum="0" Maximum="1" Value="{Binding AutoZoomSmoothness}" IsEnabled="{Binding AutoZoomEnabled}" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
                                         <TextBlock Text="{Binding AutoZoomStatusText}" Foreground="{DynamicResource ShareX.Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="11"/>
                                     </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Classes="tool-panel" Padding="14">
+                                <StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.mouse_pointer_2}" Classes="icon" FontSize="15" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="1" Classes="section-heading" Text="Smooth cursor" Margin="0" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Column="2" IsChecked="{Binding SmoothCursorEnabled}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <TextBlock Text="Swaps the Windows cursor for one that glides between clicks instead of jittering." Classes="field-label" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                    <Grid ColumnDefinitions="Auto,*" Margin="0,10,0,0">
+                                        <TextBlock Grid.Column="0" Classes="field-label" Text="Cursor"/>
+                                        <TextBlock Grid.Column="1" Classes="field-label" Text="{Binding SelectedCursorStyle.DisplayName}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <ListBox Classes="studio-styles"
+                                             ItemsSource="{x:Static vm:VideoEditorViewModel.CursorStyles}"
+                                             SelectedItem="{Binding SelectedCursorStyle}"
+                                             IsEnabled="{Binding SmoothCursorEnabled}">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:VideoCursorStyleItem">
+                                                <Border Classes="studio-card"
+                                                        Width="46" Height="46"
+                                                        CornerRadius="6"
+                                                        BorderThickness="2"
+                                                        Background="#3F3F46"
+                                                        ToolTip.Tip="{Binding DisplayName}">
+                                                    <Image Source="{Binding Preview}" Width="30" Height="30" Stretch="Uniform"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                        <TextBlock Grid.Column="0" Classes="field-label" Text="Smoothing" Margin="0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CursorSmoothing, StringFormat={}{0:P0}}" Classes="field-label" Margin="0"/>
+                                    </Grid>
+                                    <Slider Minimum="0" Maximum="1" Value="{Binding CursorSmoothing}" IsEnabled="{Binding SmoothCursorEnabled}" TickFrequency="0.05" IsSnapToTickEnabled="True" ToolTip.Tip="How much hand shake is ironed out. Clicks always land exactly where you clicked."/>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                        <TextBlock Grid.Column="0" Classes="field-label" Text="Size" Margin="0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CursorSize, StringFormat={}{0:0.00}×}" Classes="field-label" Margin="0"/>
+                                    </Grid>
+                                    <Slider Minimum="0.75" Maximum="3" Value="{Binding CursorSize}" IsEnabled="{Binding SmoothCursorEnabled}" TickFrequency="0.25" IsSnapToTickEnabled="True"/>
+                                    <TextBlock Text="{Binding CursorNoticeText}" IsVisible="{Binding HasCursorNotice}" Foreground="{DynamicResource ShareX.Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="11"/>
                                 </StackPanel>
                             </Border>
 

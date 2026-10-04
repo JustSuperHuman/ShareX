@@ -37,6 +37,8 @@ namespace ShareX.ScreenCaptureLib
     // in progress. The resulting motion track lets the video editor drive elegant auto-zoom later on.
     public class MouseMotionRecorder : IDisposable
     {
+        private const float OutsideMargin = 0.25f;
+
         private readonly Rectangle captureArea;
         private readonly int intervalMilliseconds;
         private readonly List<ScreenRecordingMotionSample> samples = new List<ScreenRecordingMotionSample>();
@@ -99,10 +101,14 @@ namespace ShareX.ScreenCaptureLib
                 lastElapsedSeconds = t;
 
                 Point position = CaptureHelpers.GetCursorPosition();
-                float x = Clamp01((position.X - captureArea.X) / (float)captureArea.Width);
-                float y = Clamp01((position.Y - captureArea.Y) / (float)captureArea.Height);
+                float x = (position.X - captureArea.X) / (float)captureArea.Width;
+                float y = (position.Y - captureArea.Y) / (float)captureArea.Height;
 
-                samples.Add(new ScreenRecordingMotionSample(t, x, y));
+                // Samples may run a little past the edges so a replacement cursor can slide out of frame
+                // instead of sticking to the border; clicks stay inside.
+                samples.Add(new ScreenRecordingMotionSample(t, Clamp(x, -OutsideMargin, 1f + OutsideMargin), Clamp(y, -OutsideMargin, 1f + OutsideMargin)));
+                x = Clamp(x, 0f, 1f);
+                y = Clamp(y, 0f, 1f);
 
                 bool leftDown = (Control.MouseButtons & MouseButtons.Left) == MouseButtons.Left;
 
@@ -130,10 +136,10 @@ namespace ShareX.ScreenCaptureLib
             };
         }
 
-        private static float Clamp01(float value)
+        private static float Clamp(float value, float min, float max)
         {
-            if (value < 0f) return 0f;
-            if (value > 1f) return 1f;
+            if (value < min) return min;
+            if (value > max) return max;
             return value;
         }
 
