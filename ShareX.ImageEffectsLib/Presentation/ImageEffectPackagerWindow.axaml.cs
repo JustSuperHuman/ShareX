@@ -1,6 +1,25 @@
 #region License Information (GPL v3)
 
-/* ShareX - Copyright (c) 2007-2026 ShareX Team - GPL v3 */
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
 
 #endregion License Information (GPL v3)
 
@@ -42,7 +61,7 @@ public partial class ImageEffectPackagerWindow : Window
     private async void OnBrowseAssetsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions { AllowMultiple = false, Title = "Select effect assets folder" });
+            new FolderPickerOpenOptions { AllowMultiple = false, Title = Localization.Strings.ImageEffectPackagerWindow_Select_assets_folder });
         if (folders.Count > 0) _assetsFolder.Text = folders[0].Path.LocalPath;
     }
 
@@ -50,10 +69,10 @@ public partial class ImageEffectPackagerWindow : Window
     {
         IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save image effect package",
+            Title = Localization.Strings.ImageEffectPackagerWindow_Save_package,
             DefaultExtension = "sxie",
             SuggestedFileName = Path.GetFileName(_packageFile.Text),
-            FileTypeChoices = [new FilePickerFileType("ShareX image effect") { Patterns = ["*.sxie"] }]
+            FileTypeChoices = [new FilePickerFileType(Localization.Strings.ImageEffectPackagerWindow_File_type) { Patterns = ["*.sxie"] }]
         });
         if (file != null) _packageFile.Text = file.Path.LocalPath;
     }
@@ -68,17 +87,17 @@ public partial class ImageEffectPackagerWindow : Window
             string output = _packageFile.Text?.Trim() ?? string.Empty;
             if (!string.IsNullOrEmpty(assets) && !assets.StartsWith(_effectsFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             {
-                _status.Text = "The assets folder must be inside the ShareX image effects folder.";
+                _status.Text = Localization.Strings.ImageEffectPackagerWindow_Assets_must_be_inside;
                 return;
             }
             if (string.IsNullOrWhiteSpace(output))
             {
-                _status.Text = "Choose a package file path.";
+                _status.Text = Localization.Strings.ImageEffectPackagerWindow_Choose_package_path;
                 return;
             }
             if (File.Exists(output) && _overwrite.IsChecked != true)
             {
-                _status.Text = "A package already exists at this path. Enable overwrite to replace it.";
+                _status.Text = Localization.Strings.ImageEffectPackagerWindow_Already_exists;
                 return;
             }
 
@@ -86,7 +105,7 @@ public partial class ImageEffectPackagerWindow : Window
             if (!string.IsNullOrEmpty(result) && File.Exists(result))
             {
                 FileHelpers.OpenFolderWithFile(result);
-                _status.Text = "Package created successfully.";
+                _status.Text = Localization.Strings.ImageEffectPackagerWindow_Created_successfully;
             }
         }
         catch (Exception ex)

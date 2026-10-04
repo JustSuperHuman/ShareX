@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Drawings;
@@ -65,14 +65,15 @@ public sealed class GradientOverlayImageEffect : ImageEffectBase
 
         SKBitmap result = source.Copy();
         using SKCanvas canvas = new(result);
-        using SKPaint paint = new()
-        {
-            Shader = SKShader.CreateLinearGradient(
+        using var ownedShader1 = SKShader.CreateLinearGradient(
                 start, end,
                 [Color1.WithAlpha((byte)(Color1.Alpha * alpha)),
                  Color2.WithAlpha((byte)(Color2.Alpha * alpha))],
                 [0f, 1f],
-                SKShaderTileMode.Clamp),
+                SKShaderTileMode.Clamp);
+        using SKPaint paint = new()
+        {
+            Shader = ownedShader1,
             BlendMode = SKBlendMode.Overlay
         };
 

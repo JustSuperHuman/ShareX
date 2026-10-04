@@ -52,12 +52,7 @@ namespace ShareX.ImageEditor.Integration
 
         // Editor
         public EditorTool LastUsedAnnotationTool { get; set; } = EditorTool.Rectangle;
-        public string Theme { get; set; } = "Dark";
-        public bool UseSystemTheme { get; set; } = true;
-        public string AccentColorHex { get; set; } = "#3E83F2";
-        [JsonIgnore]
-        public Color AccentColor { get => HexToColor(AccentColorHex); set => AccentColorHex = ColorToHex(value); }
-        public bool UseSystemAccentColor { get; set; } = true;
+
         public bool RememberWindowState { get; set; } = true;
         public bool IsWindowMaximized { get; set; } = true;
         public double WindowWidth { get; set; } = 1280;

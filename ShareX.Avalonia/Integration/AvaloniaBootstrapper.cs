@@ -28,8 +28,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Themes.Fluent;
+using Avalonia.Threading;
 
 namespace ShareX.AvaloniaUI.Integration;
+
+using ShareX.AvaloniaUI.Theming;
 
 public sealed class ShareXAvaloniaApplication : Application
 {
@@ -58,6 +61,7 @@ public sealed class ShareXAvaloniaApplication : Application
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         }
 
+        ThemeManager.Refresh();
         base.OnFrameworkInitializationCompleted();
     }
 }
@@ -65,36 +69,105 @@ public sealed class ShareXAvaloniaApplication : Application
 public static class AvaloniaBootstrapper
 {
     private static readonly object SyncRoot = new();
-    private static bool _initialized;
+    private static ClassicDesktopStyleApplicationLifetime? _desktopLifetime;
+    private static string[]? _args;
+    private static int _shutdownStarted;
 
+    public static void Initialize(string[] args, Func<Task> startup, Action shutdown)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+        ArgumentNullException.ThrowIfNull(startup);
+        ArgumentNullException.ThrowIfNull(shutdown);
+
+        if (Application.Current != null || _desktopLifetime != null)
+        {
+            throw new InvalidOperationException("Avalonia is already initialized.");
+        }
+
+        Interlocked.Exchange(ref _shutdownStarted, 0);
+
+        ClassicDesktopStyleApplicationLifetime desktop = new()
+        {
+            Args = args,
+            ShutdownMode = ShutdownMode.OnExplicitShutdown
+        };
+        desktop.Startup += async (_, _) => await startup();
+        desktop.Exit += (_, _) =>
+        {
+            Interlocked.Exchange(ref _shutdownStarted, 1);
+            shutdown();
+        };
+
+        BuildAvaloniaApp().SetupWithLifetime(desktop);
+        _desktopLifetime = desktop;
+        _args = args;
+    }
+
+    public static int Run()
+    {
+        ClassicDesktopStyleApplicationLifetime desktop = _desktopLifetime ??
+            throw new InvalidOperationException("Avalonia must be initialized before its application lifetime is started.");
+        string[] args = _args ?? [];
+
+        return desktop.Start(args);
+    }
+
+    /// <summary>
+    /// Initializes Avalonia for a legacy host that owns its own application lifetime and message loop.
+    /// The ShareX desktop application should use <see cref="Initialize"/> followed by <see cref="Run"/> instead.
+    /// </summary>
     public static void EnsureInitialized()
     {
-        if (_initialized)
+        if (Application.Current != null)
         {
             return;
         }
 
         lock (SyncRoot)
         {
-            if (_initialized)
-            {
-                return;
-            }
-
             if (Application.Current == null)
             {
-                AppBuilder builder = AppBuilder.Configure<ShareXAvaloniaApplication>()
-                    .UsePlatformDetect()
-                    .WithInterFont();
+                BuildAvaloniaApp().SetupWithoutStarting();
+                ThemeManager.Refresh();
+            }
+        }
+    }
+
+    public static void Shutdown()
+    {
+        if (Interlocked.Exchange(ref _shutdownStarted, 1) != 0)
+        {
+            return;
+        }
+
+        void ShutdownCore()
+        {
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            ShutdownCore();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(ShutdownCore);
+        }
+    }
+
+    private static AppBuilder BuildAvaloniaApp()
+    {
+        AppBuilder builder = AppBuilder.Configure<ShareXAvaloniaApplication>()
+            .UsePlatformDetect()
+            .WithInterFont();
 
 #if DEBUG
-                builder = builder.LogToTrace();
+        builder = builder.LogToTrace();
 #endif
 
-                builder.SetupWithoutStarting();
-            }
-
-            _initialized = true;
-        }
+        return builder;
     }
 }

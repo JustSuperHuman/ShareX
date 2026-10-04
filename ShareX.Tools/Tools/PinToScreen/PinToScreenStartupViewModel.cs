@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -47,7 +58,7 @@ public sealed partial class PinToScreenStartupViewModel : ViewModelBase
         try
         {
             await Task.Delay(200);
-            await SelectAsync(_services.CaptureRegionAsync, "No region was selected.");
+            await SelectAsync(_services.CaptureRegionAsync, Localization.Strings.PinToScreenStartupViewModel_No_region_selected);
         }
         finally
         {
@@ -56,10 +67,10 @@ public sealed partial class PinToScreenStartupViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task FromClipboardAsync() => SelectAsync(_services.GetClipboardImageAsync, "The clipboard does not contain an image.");
+    private Task FromClipboardAsync() => SelectAsync(_services.GetClipboardImageAsync, Localization.Strings.PinToScreenStartupViewModel_Clipboard_no_image);
 
     [RelayCommand]
-    private Task FromFileAsync() => SelectAsync(_services.SelectImageFileAsync, "No image was selected.");
+    private Task FromFileAsync() => SelectAsync(_services.SelectImageFileAsync, Localization.Strings.PinToScreenStartupViewModel_No_image_selected);
 
     private async Task SelectAsync(Func<Task<PinToScreenSource?>> selector, string emptyMessage)
     {
@@ -84,7 +95,7 @@ public sealed partial class PinToScreenStartupViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Unable to load the image. {ex.Message}";
+            ErrorMessage = string.Format(Localization.Strings.PinToScreenStartupViewModel_Unable_load_image, ex.Message);
             ToolsDiagnostics.ReportWarning(nameof(PinToScreenStartupViewModel), "Unable to select an image to pin.", ex);
         }
         finally

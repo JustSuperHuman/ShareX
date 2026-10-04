@@ -27,7 +27,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
-using ShareX.Tools;
 using ShareX.AvaloniaUI.Theming;
 
 namespace ShareX.Tools;
@@ -39,7 +38,7 @@ public partial class VideoConverterWindow : Window
     public VideoConverterWindow()
         : this(
             new VideoConverterOptions(),
-            (_, _, _) => Task.FromResult(new VideoConversionResult(false, false, "FFmpeg is unavailable.")))
+            (_, _, _) => Task.FromResult(new VideoConversionResult(false, false, Localization.Strings.VideoConverterWindow_FFmpeg_unavailable)))
     {
     }
 
@@ -77,7 +76,7 @@ public partial class VideoConverterWindow : Window
             SuggestedStartLocation = suggestedStartLocation,
             FileTypeFilter =
             [
-                new FilePickerFileType("Video and animation files")
+                new FilePickerFileType(Localization.Strings.VideoConverterWindow_Video_animation_files)
                 {
                     Patterns = ["*.mp4", "*.mkv", "*.webm", "*.avi", "*.mov", "*.m4v", "*.wmv", "*.gif", "*.webp", "*.png", "*.apng"]
                 },

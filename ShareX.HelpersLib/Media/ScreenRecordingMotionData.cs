@@ -68,11 +68,13 @@ namespace ShareX.HelpersLib
         }
     }
 
-    // Cursor motion recorded alongside a screen recording. Persisted next to the video file as a
-    // sidecar so the video editor can drive elegant auto-zoom that follows what the user was doing.
+    // Cursor motion recorded alongside a screen recording. Persisted as a sidecar in a "_data" folder
+    // beside the video, so the recordings folder stays tidy while the video editor can still drive
+    // auto-zoom and cursor effects that follow what the user was doing.
     public class ScreenRecordingMotionData
     {
         public const string SidecarSuffix = ".sharex-motion.json";
+        public const string SidecarFolderName = "_data";
 
         public int Version { get; set; } = 1;
         public int CaptureWidth { get; set; }
@@ -103,6 +105,15 @@ namespace ShareX.HelpersLib
 
         public static string GetSidecarPath(string videoFilePath)
         {
+            if (string.IsNullOrEmpty(videoFilePath)) return null;
+
+            string folder = Path.GetDirectoryName(Path.GetFullPath(videoFilePath));
+            return Path.Combine(folder, SidecarFolderName, Path.GetFileName(videoFilePath) + SidecarSuffix);
+        }
+
+        // Where sidecars lived before they moved into the "_data" folder; still read so older recordings keep their track.
+        private static string GetLegacySidecarPath(string videoFilePath)
+        {
             return string.IsNullOrEmpty(videoFilePath) ? null : videoFilePath + SidecarSuffix;
         }
 
@@ -112,22 +123,24 @@ namespace ShareX.HelpersLib
 
             if (!string.IsNullOrEmpty(path))
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
                 JsonHelpers.SerializeToFile(this, path);
             }
         }
 
         public static ScreenRecordingMotionData Load(string videoFilePath)
         {
-            string path = GetSidecarPath(videoFilePath);
-
-            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            foreach (string path in new[] { GetSidecarPath(videoFilePath), GetLegacySidecarPath(videoFilePath) })
             {
-                try
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
-                    return JsonHelpers.DeserializeFromFile<ScreenRecordingMotionData>(path);
-                }
-                catch
-                {
+                    try
+                    {
+                        return JsonHelpers.DeserializeFromFile<ScreenRecordingMotionData>(path);
+                    }
+                    catch
+                    {
+                    }
                 }
             }
 
@@ -136,11 +149,12 @@ namespace ShareX.HelpersLib
 
         public static void Delete(string videoFilePath)
         {
-            string path = GetSidecarPath(videoFilePath);
-
-            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            foreach (string path in new[] { GetSidecarPath(videoFilePath), GetLegacySidecarPath(videoFilePath) })
             {
-                FileHelpers.DeleteFile(path);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    FileHelpers.DeleteFile(path);
+                }
             }
         }
     }

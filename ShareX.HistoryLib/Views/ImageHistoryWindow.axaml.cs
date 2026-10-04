@@ -3,6 +3,22 @@
 /*
     ShareX - A program that allows you to take screenshots and share any file type
     Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -18,10 +34,10 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ShareX.AvaloniaUI.Theming;
 using ShareX.HelpersLib;
+using ShareX.HistoryLib.Localization;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -55,7 +71,10 @@ public partial class ImageHistoryWindow : Window
     private PointerPressedEventArgs? _dragPointerPressed;
     private Point _dragStart;
     private bool _dragStarted;
+    private bool _suppressThumbnailClickAction;
+    private bool _historyLoaded;
     private bool _windowPlacementApplied;
+    private bool _virtualListLayoutRefreshPending;
 
     private ShareX.HelpersLib.WindowState SavedWindowState =>
         _settings.WindowState ??= new ShareX.HelpersLib.WindowState();
@@ -68,8 +87,6 @@ public partial class ImageHistoryWindow : Window
         InitializeComponent();
         RequestedThemeVariant = ThemeManager.GetCurrentTheme();
         ThumbnailRows.ItemsSource = _rows;
-        ThumbnailRows.AddHandler(PointerWheelChangedEvent, OnThumbnailRowsPointerWheelChanged,
-            RoutingStrategies.Tunnel, true);
         _filterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(220) };
         _filterTimer.Tick += OnFilterTimerTick;
     }
@@ -95,12 +112,12 @@ public partial class ImageHistoryWindow : Window
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
-        ApplySavedWindowState();
         _windowPlacementApplied = true;
         Activate();
         SearchTextBox.Focus();
         await Dispatcher.UIThread.InvokeAsync(AttachScrollViewer, DispatcherPriority.Loaded);
         await RefreshHistoryAsync();
+        QueueVirtualListLayoutRefresh();
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e) => SaveWindowState();
@@ -155,6 +172,30 @@ public partial class ImageHistoryWindow : Window
     private void OnResized(object? sender, WindowResizedEventArgs e)
     {
         if (_windowPlacementApplied) SaveNormalWindowSize();
+        QueueVirtualListLayoutRefresh();
+    }
+
+    private void QueueVirtualListLayoutRefresh()
+    {
+        if (_virtualListLayoutRefreshPending) return;
+
+        _virtualListLayoutRefreshPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _virtualListLayoutRefreshPending = false;
+            if (!IsVisible) return;
+
+            ThumbnailRows.InvalidateMeasure();
+            ThumbnailRows.InvalidateArrange();
+
+            VirtualizingStackPanel? panel = ThumbnailRows.GetVisualDescendants()
+                .OfType<VirtualizingStackPanel>()
+                .FirstOrDefault();
+            panel?.InvalidateMeasure();
+            panel?.InvalidateArrange();
+
+            Dispatcher.UIThread.Post(CheckLoadMoreIfViewportNotFilled, DispatcherPriority.Background);
+        }, DispatcherPriority.Background);
     }
 
     private void OnPositionChanged(object? sender, PixelPointEventArgs e)
@@ -181,12 +222,17 @@ public partial class ImageHistoryWindow : Window
 
     private async Task RefreshHistoryAsync()
     {
+        LoadingState.IsVisible = true;
+        EmptyState.IsVisible = false;
         SetBusy(true);
         try
         {
             List<HistoryItem> items = await _historyManager.GetHistoryItemsAsync();
             items.Reverse();
+            string[] processNames = await Task.Run(() => HistoryHelpers.GetProcessNames(items));
             _allHistoryItems = items;
+            SearchTextBox.ItemsSource = processNames;
+            _historyLoaded = true;
             await ApplyFilterAsync();
         }
         finally
@@ -200,6 +246,7 @@ public partial class ImageHistoryWindow : Window
     private void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
         if (_settings.RememberSearchText) _settings.SearchText = SearchTextBox.Text ?? string.Empty;
+        if (!_historyLoaded) return;
         _filterTimer.Stop();
         _filterTimer.Start();
     }
@@ -212,6 +259,8 @@ public partial class ImageHistoryWindow : Window
 
     private async Task ApplyFilterAsync()
     {
+        if (!_historyLoaded) return;
+
         int version = Interlocked.Increment(ref _filterVersion);
         string search = SearchTextBox.Text?.Trim() ?? string.Empty;
         bool favorites = _settings.Favorites;
@@ -307,13 +356,13 @@ public partial class ImageHistoryWindow : Window
 
     private void UpdateCountAndEmptyState()
     {
-        int loaded = _loadedEntries.Count;
         int filtered = _filteredHistoryItems.Length;
-        ItemCountText.Text = loaded == filtered
-            ? $"{filtered:N0} items"
-            : $"{loaded:N0} shown · {filtered:N0} matched";
+        Title = $"{Strings.HistoryWindows_ShareX_Image_History} ({string.Format(Strings.ImageHistoryWindow_ItemsFormat, filtered)})";
+        LoadingState.IsVisible = false;
         EmptyState.IsVisible = filtered == 0;
-        EmptyStateText.Text = _allHistoryItems.Count == 0 ? "No image history items" : "No items match the current filter";
+        EmptyStateText.Text = _allHistoryItems.Count == 0
+            ? Strings.HistoryWindows_No_image_history_items
+            : Strings.ImageHistoryWindow_NoItemsMatchCurrentFilter;
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -321,24 +370,6 @@ public partial class ImageHistoryWindow : Window
         if (!_settings.AutoLoadMoreItems || _scrollViewer == null) return;
         double remaining = _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height - _scrollViewer.Offset.Y;
         if (remaining <= Math.Max(120, _settings.ThumbnailSize.Height)) LoadNextBatch();
-    }
-
-    private void OnThumbnailRowsPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    {
-        if (_scrollViewer == null || e.Delta.Y == 0) return;
-
-        int lines = System.Windows.Forms.SystemInformation.MouseWheelScrollLines;
-        if (lines == 0)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        double distance = lines < 0 ? _scrollViewer.Viewport.Height : lines * 16.0;
-        double maximum = Math.Max(0, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);
-        double offset = Math.Clamp(_scrollViewer.Offset.Y - e.Delta.Y * distance, 0, maximum);
-        _scrollViewer.Offset = new Vector(_scrollViewer.Offset.X, offset);
-        e.Handled = true;
     }
 
     private void CheckLoadMoreIfViewportNotFilled()
@@ -356,10 +387,10 @@ public partial class ImageHistoryWindow : Window
 
     private void UpdateColumnCount()
     {
-        const double thumbnailSpacing = 5;
-        double cardWidth = Math.Max(34, _settings.ThumbnailSize.Width + 2);
+        const double cardChrome = 18; // 4px margins, 1px borders and 4px padding on both sides.
+        double cardWidth = Math.Max(50, _settings.ThumbnailSize.Width + cardChrome);
         int columns = Math.Max(1, (int)Math.Floor(
-            Math.Max(1, ThumbnailRows.Bounds.Width + thumbnailSpacing) / (cardWidth + thumbnailSpacing)));
+            Math.Max(1, ThumbnailRows.Bounds.Width) / cardWidth));
         if (columns == _columns) return;
         _columns = columns;
         RebuildRows();
@@ -424,6 +455,8 @@ public partial class ImageHistoryWindow : Window
 
         if (!point.Properties.IsLeftButtonPressed) return;
         int index = _loadedEntries.IndexOf(entry);
+        _suppressThumbnailClickAction = e.KeyModifiers.HasFlag(KeyModifiers.Control) ||
+            e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && _selectionAnchor >= 0)
         {
             SelectRange(_selectionAnchor, index);
@@ -496,7 +529,14 @@ public partial class ImageHistoryWindow : Window
 
     private void OnThumbnailPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_dragStarted) _dragPointerPressed = null;
+        if (sender is not Control control ||
+            e.GetCurrentPoint(control).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonReleased) return;
+
+        bool wasPressed = _dragPointerPressed != null;
+        bool wasDragging = _dragStarted;
+        _dragPointerPressed = null;
+
+        if (wasPressed && !wasDragging && !_suppressThumbnailClickAction) ShowSelectedImage();
     }
 
     private void OnThumbnailDoubleTapped(object? sender, TappedEventArgs e) => OpenSelectedItem();
@@ -514,7 +554,7 @@ public partial class ImageHistoryWindow : Window
     private async void OnStatsClick(object? sender, RoutedEventArgs e)
     {
         ShowModal(StatsDialog);
-        StatsTextBox.Text = "Calculating statistics...";
+        StatsTextBox.Text = Strings.ImageHistoryWindow_CalculatingStatistics;
         StatsTextBox.Text = await Task.Run(() => HistoryHelpers.OutputStats(_allHistoryItems));
     }
 
@@ -529,7 +569,7 @@ public partial class ImageHistoryWindow : Window
     {
         IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Select folder to import",
+            Title = Strings.ImageHistoryWindow_SelectFolderToImport,
             AllowMultiple = false
         });
         ImportFolderTextBox.Text = folders.FirstOrDefault()?.Path.LocalPath ?? ImportFolderTextBox.Text;
@@ -543,13 +583,13 @@ public partial class ImageHistoryWindow : Window
         string folder = ImportFolderTextBox.Text?.Trim() ?? string.Empty;
         if (!Directory.Exists(folder))
         {
-            ImportStatusText.Text = "The selected folder does not exist.";
+            ImportStatusText.Text = Strings.ImageHistoryWindow_SelectedFolderDoesNotExist;
             return;
         }
 
         SetBusy(true);
         ImportConfirmButton.IsEnabled = false;
-        ImportStatusText.Text = "Importing files...";
+        ImportStatusText.Text = Strings.ImageHistoryWindow_ImportingFiles;
         try
         {
             bool imagesOnly = ImportImagesOnlyCheckBox.IsChecked == true;
@@ -558,7 +598,7 @@ public partial class ImageHistoryWindow : Window
                     .Select(item => item.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase)!
                 : [];
             int imported = await Task.Run(() => ImportFolder(folder, imagesOnly, existing));
-            ImportStatusText.Text = $"Successfully imported {imported:N0} files.";
+            ImportStatusText.Text = string.Format(Strings.ImageHistoryWindow_SuccessfullyImportedFilesFormat, imported);
             if (imported > 0) await RefreshHistoryAsync();
         }
         catch (Exception ex)
@@ -687,7 +727,7 @@ public partial class ImageHistoryWindow : Window
     {
         HistoryItem? item = GetPrimaryItem();
         if (item == null) return;
-        ShowPrompt("Edit tag", "Enter a tag for this history item.", "Save", () =>
+        ShowPrompt(Strings.ImageHistoryWindow_EditTag, Strings.ImageHistoryWindow_EnterTagForHistoryItem, Strings.HistoryWindows_Save, () =>
         {
             item.Tag = PromptTextBox.Text;
             _historyManager.Edit(item);
@@ -729,6 +769,7 @@ public partial class ImageHistoryWindow : Window
         item.ShortenedURL = EditShortUrlTextBox.Text;
         item.Tags = ParseTags(EditTagsTextBox.Text);
         _historyManager.Edit(item);
+        SearchTextBox.ItemsSource = HistoryHelpers.GetProcessNames(_allHistoryItems);
         RefreshVisibleItem(item);
         CloseModal();
     }
@@ -755,7 +796,7 @@ public partial class ImageHistoryWindow : Window
         HistoryItem? item = GetPrimaryItem();
         if (item == null || string.IsNullOrWhiteSpace(item.FilePath)) return;
         string oldName = Path.GetFileNameWithoutExtension(item.FilePath);
-        ShowPrompt("Rename file", "Enter a new file name.", "Rename", () =>
+        ShowPrompt(Strings.ImageHistoryWindow_RenameFile, Strings.ImageHistoryWindow_EnterNewFileName, Strings.ImageHistoryWindow_Rename, () =>
         {
             string newName = PromptTextBox.Text?.Trim() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(newName) && !newName.Equals(oldName, StringComparison.OrdinalIgnoreCase))
@@ -789,10 +830,13 @@ public partial class ImageHistoryWindow : Window
     {
         HistoryItem[] items = GetSelectedItems();
         if (items.Length == 0) return;
-        string noun = items.Length == 1 ? (deleteFiles ? "this file" : "this item") :
-            (deleteFiles ? $"these {items.Length:N0} files" : $"these {items.Length:N0} items");
-        ShowPrompt(deleteFiles ? "Delete files?" : "Delete history items?",
-            $"Do you really want to delete {noun}? This action cannot be undone.", "Delete", async () =>
+        string noun = items.Length == 1
+            ? (deleteFiles ? Strings.ImageHistoryWindow_ThisFile : Strings.ImageHistoryWindow_ThisItem)
+            : (deleteFiles
+                ? string.Format(Strings.ImageHistoryWindow_TheseFilesFormat, items.Length)
+                : string.Format(Strings.ImageHistoryWindow_TheseItemsFormat, items.Length));
+        ShowPrompt(deleteFiles ? Strings.ImageHistoryWindow_DeleteFiles : Strings.ImageHistoryWindow_DeleteHistoryItems,
+            string.Format(Strings.ImageHistoryWindow_ConfirmDeleteFormat, noun), Strings.ImageHistoryWindow_Delete, async () =>
             {
                 if (deleteFiles)
                 {
@@ -804,6 +848,7 @@ public partial class ImageHistoryWindow : Window
                 _historyManager.Delete(items);
                 HashSet<long> ids = items.Select(item => item.Id).ToHashSet();
                 _allHistoryItems.RemoveAll(item => ids.Contains(item.Id));
+                SearchTextBox.ItemsSource = HistoryHelpers.GetProcessNames(_allHistoryItems);
                 await ApplyFilterAsync();
             });
     }
@@ -824,8 +869,9 @@ public partial class ImageHistoryWindow : Window
         }
         else
         {
-            ShowPrompt("Open file?", $"Would you like to open this file?{Environment.NewLine}{Environment.NewLine}{item.FilePath}",
-                "Open", () =>
+            ShowPrompt(Strings.ImageHistoryWindow_OpenFile,
+                string.Format(Strings.ImageHistoryWindow_ConfirmOpenFileFormat, item.FilePath),
+                Strings.HistoryWindows_Open, () =>
                 {
                     FileHelpers.OpenFile(item.FilePath);
                     return Task.CompletedTask;

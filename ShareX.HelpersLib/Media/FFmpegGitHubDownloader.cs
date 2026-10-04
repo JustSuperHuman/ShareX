@@ -25,25 +25,25 @@
 
 using System;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+using DialogResult = ShareX.AvaloniaUI.DialogResult;
 
 namespace ShareX.HelpersLib
 {
     public static class FFmpegGitHubDownloader
     {
         public static async Task<DialogResult> DownloadFFmpeg(bool async,
-            DownloaderForm.DownloaderInstallEventHandler installRequested)
+            DownloaderWindow.DownloaderInstallEventHandler installRequested)
         {
             FFmpegUpdateChecker updateChecker = new FFmpegUpdateChecker("ShareX", "FFmpeg");
             string url = await updateChecker.GetLatestDownloadURL(true);
 
-            using (DownloaderForm form = new DownloaderForm(url, "ffmpeg.zip"))
+            DownloaderWindowResult result = await DownloaderWindow.ShowAsync(url, "ffmpeg.zip", window =>
             {
-                form.InstallType = InstallType.Event;
-                form.RunInstallerInBackground = async;
-                form.InstallRequested += installRequested;
-                return form.ShowDialog();
-            }
+                window.InstallType = InstallType.Event;
+                window.RunInstallerInBackground = async;
+                window.InstallRequested += installRequested;
+            });
+            return result.DialogResult;
         }
 
         public static bool ExtractFFmpeg(string archivePath, string extractPath)

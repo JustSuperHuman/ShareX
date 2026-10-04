@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Filters;
@@ -95,13 +95,14 @@ public sealed class OrnateScrollBorderImageEffect : ImageEffectBase
         canvas.DrawBitmap(source, border, border);
 
         // Subtle inner shadow over image edge
+        using (var ownedShader1 = SKShader.CreateLinearGradient(
+                new SKPoint(b, b), new SKPoint(b + border * 0.15f, b + border * 0.15f),
+                [new SKColor(0, 0, 0, 45), SKColors.Transparent], SKShaderTileMode.Clamp))
         using (SKPaint innerShadow = new()
         {
             IsAntialias = true,
             Style = SKPaintStyle.Fill,
-            Shader = SKShader.CreateLinearGradient(
-                new SKPoint(b, b), new SKPoint(b + border * 0.15f, b + border * 0.15f),
-                [new SKColor(0, 0, 0, 45), SKColors.Transparent], SKShaderTileMode.Clamp)
+            Shader = ownedShader1
         })
         {
             canvas.DrawRect(b, b, source.Width, source.Height, innerShadow);

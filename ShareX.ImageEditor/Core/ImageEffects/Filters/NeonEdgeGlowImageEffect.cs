@@ -23,9 +23,9 @@
 
 #endregion License Information (GPL v3)
 
+using ShareX.AvaloniaUI.Theming;
 using ShareX.ImageEditor.Core.ImageEffects.Helpers;
 using ShareX.ImageEditor.Core.ImageEffects.Parameters;
-using ShareX.AvaloniaUI.Theming;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Filters;
@@ -208,9 +208,10 @@ public sealed class NeonEdgeGlowImageEffect : ImageEffectBase
         using SKBitmap blurredExpanded = new SKBitmap(expandedWidth, expandedHeight, source.ColorType, source.AlphaType);
         using (SKCanvas blurCanvas = new SKCanvas(blurredExpanded))
         {
+            using var ownedImageFilter1 = SKImageFilter.CreateBlur(sigma, sigma);
             using SKPaint blurPaint = new SKPaint
             {
-                ImageFilter = SKImageFilter.CreateBlur(sigma, sigma)
+                ImageFilter = ownedImageFilter1
             };
             blurCanvas.DrawBitmap(expanded, 0, 0, blurPaint);
         }

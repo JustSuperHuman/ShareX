@@ -26,6 +26,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using ShareX.AvaloniaUI.Theming;
 using ShareX.ImageEditor.Integration;
 using ShareX.ImageEditor.Presentation.ViewModels;
 using ShareX.ImageEditor.Presentation.Views;
@@ -37,7 +38,7 @@ namespace ShareX.ImageEditor.App
 {
     public partial class App : Application
     {
-        private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".ico"];
+        private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico"];
 
         public override void Initialize()
         {
@@ -46,6 +47,8 @@ namespace ShareX.ImageEditor.App
 
         public override void OnFrameworkInitializationCompleted()
         {
+            ThemeManager.Configure(new ApplicationThemeOptions());
+
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 ImageEditorOptions options = new ImageEditorOptions();
@@ -60,9 +63,6 @@ namespace ShareX.ImageEditor.App
                 if (window.DataContext is MainViewModel vm)
                 {
                     vm.ShowFileMenu = true;
-#if !DEBUG
-                    vm.ShowOptionsButton = false;
-#endif
                     vm.ShowTaskButtons = false;
                     vm.UseContinueWorkflow = false;
                     vm.ShowBottomToolbar = true;

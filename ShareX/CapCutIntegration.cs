@@ -15,11 +15,13 @@
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using ShareX.HelpersLib;
-using ShareX.Properties;
+using ShareX.Localization;
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Windows.Forms;
+using MessageBox = ShareX.AvaloniaUI.MessageBox;
+using MessageBoxButtons = ShareX.AvaloniaUI.MessageBoxButtons;
+using MessageBoxIcon = ShareX.AvaloniaUI.MessageBoxIcon;
 
 namespace ShareX
 {
@@ -37,7 +39,7 @@ namespace ShareX
                 string executablePath = FindExecutable();
                 if (executablePath == null)
                 {
-                    MessageBox.Show(Resources.CapCutIntegration_NotInstalled, "ShareX",
+                    MessageBox.Show(Strings.CapCutIntegration_NotInstalled, "ShareX",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }

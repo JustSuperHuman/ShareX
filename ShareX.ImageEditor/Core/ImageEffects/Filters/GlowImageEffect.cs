@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Filters;
@@ -91,10 +91,12 @@ public sealed class GlowImageEffect : ImageEffectBase
 
         SKColor glowColor = Color.WithAlpha((byte)(255 * Strength / 100f));
 
+        using var ownedColorFilter1 = SKColorFilter.CreateBlendMode(glowColor, SKBlendMode.SrcIn);
+        using var ownedImageFilter2 = SKImageFilter.CreateBlur(Size, Size);
         using SKPaint glowPaint = new()
         {
-            ColorFilter = SKColorFilter.CreateBlendMode(glowColor, SKBlendMode.SrcIn),
-            ImageFilter = SKImageFilter.CreateBlur(Size, Size)
+            ColorFilter = ownedColorFilter1,
+            ImageFilter = ownedImageFilter2
         };
 
         canvas.DrawBitmap(source, glowX, glowY, glowPaint);

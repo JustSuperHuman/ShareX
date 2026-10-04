@@ -8,12 +8,24 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
 
 #nullable enable
 
+using ShareX.Localization;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -67,7 +79,7 @@ public sealed class HotkeySettingsItem : INotifyPropertyChanged
         }
     }
 
-    public string DisplayHotkey => IsCapturing ? "Press a hotkey..." : HotkeyText;
+    public string DisplayHotkey => IsCapturing ? Strings.HotkeySettingsWindow_PressAHotkey : HotkeyText;
 
     public HotkeyRegistrationState RegistrationState
     {
@@ -90,9 +102,9 @@ public sealed class HotkeySettingsItem : INotifyPropertyChanged
 
     public string StatusText => RegistrationState switch
     {
-        HotkeyRegistrationState.Registered => "Registered",
-        HotkeyRegistrationState.Failed => "Registration failed",
-        _ => "Not configured"
+        HotkeyRegistrationState.Registered => Strings.HotkeySettingsWindow_Registered,
+        HotkeyRegistrationState.Failed => Strings.HotkeySettingsWindow_RegistrationFailed,
+        _ => Strings.HotkeySettingsWindow_NotConfigured
     };
 
     public bool IsCustomized

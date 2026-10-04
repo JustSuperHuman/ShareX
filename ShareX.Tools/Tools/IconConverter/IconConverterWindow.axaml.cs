@@ -28,7 +28,6 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using ShareX.AvaloniaUI.Theming;
-using ShareX.Tools;
 
 namespace ShareX.Tools;
 
@@ -83,12 +82,12 @@ public partial class IconConverterWindow : Window
 
         IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save icon as",
+            Title = Localization.Strings.IconConverterWindow_Save_icon_as_dialog,
             SuggestedFileName = suggestedFileName,
             DefaultExtension = "ico",
             FileTypeChoices =
             [
-                new FilePickerFileType("Icon file") { Patterns = ["*.ico"] }
+                new FilePickerFileType(Localization.Strings.IconConverterWindow_Icon_file) { Patterns = ["*.ico"] }
             ]
         });
 

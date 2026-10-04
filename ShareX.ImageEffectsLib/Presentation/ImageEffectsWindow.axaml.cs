@@ -1,6 +1,25 @@
 #region License Information (GPL v3)
 
-/* ShareX - Copyright (c) 2007-2026 ShareX Team - GPL v3 */
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
 
 #endregion License Information (GPL v3)
 
@@ -12,11 +31,14 @@ using Newtonsoft.Json.Serialization;
 using ShareX.AvaloniaUI.Theming;
 using ShareX.HelpersLib;
 
+using SkiaSharp;
+
 namespace ShareX.ImageEffectsLib;
 
 public partial class ImageEffectsWindow : Window
 {
     private readonly ISerializationBinder _serializationBinder = new ImageEffectsSerializationBinder();
+    private ImageEffectOptionsPanel _effectOptionsPanel = null!;
     public ImageEffectsViewModel ViewModel { get; }
     public bool Accepted { get; private set; }
 
@@ -24,43 +46,76 @@ public partial class ImageEffectsWindow : Window
     {
     }
 
-    public ImageEffectsWindow(System.Drawing.Bitmap? sourceImage, List<ImageEffectPreset> presets, int selectedPresetIndex,
+    public ImageEffectsWindow(SKBitmap? sourceImage, List<ImageEffectPreset> presets, int selectedPresetIndex,
         ImageEffectsWindowMode mode, ImageEffectsCallbacks? callbacks = null, string? filePath = null)
     {
         ViewModel = new ImageEffectsViewModel(sourceImage, presets, selectedPresetIndex, mode, callbacks, filePath);
         DataContext = ViewModel;
         AvaloniaXamlLoader.Load(this);
         RequestedThemeVariant = ThemeManager.GetCurrentTheme();
+        _effectOptionsPanel = this.FindControl<ImageEffectOptionsPanel>("EffectOptionsPanel")!;
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
 
-        ViewModel.AddEffectRequested = AddEffectAsync;
-        ViewModel.EditEffectRequested = EditEffectAsync;
         ViewModel.PackagePresetRequested = PackagePresetAsync;
         ViewModel.CloseRequested = accepted => { Accepted = accepted; Close(); };
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        UpdateEffectOptions();
         Opened += async (_, _) => await ViewModel.InitializeAsync();
-        Closed += (_, _) => ViewModel.Dispose();
+        Closed += (_, _) =>
+        {
+            ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            ViewModel.Dispose();
+        };
         KeyDown += OnWindowKeyDown;
     }
 
     public void ImportPreset(string json) => ViewModel.ImportPreset(json);
 
-    private async void AddEffectAsync()
+    private void OnAddEffectClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        ImageEffectPickerWindow picker = new();
-        if (await picker.ShowDialog<bool>(this) && picker.SelectedDefinition != null)
+        if (sender is not Control button)
         {
-            ViewModel.AddEffect(picker.SelectedDefinition.Create());
+            return;
+        }
+
+        List<MenuItem> categories = ImageEffectCatalog.All
+            .GroupBy(x => x.Category)
+            .Select(group => new MenuItem
+            {
+                Header = group.Key,
+                ItemsSource = group.Select(CreateEffectMenuItem).ToList()
+            })
+            .ToList();
+
+        ContextMenu menu = new()
+        {
+            Placement = PlacementMode.BottomEdgeAlignedLeft,
+            ItemsSource = categories
+        };
+        menu.Open(button);
+    }
+
+    private MenuItem CreateEffectMenuItem(ImageEffectDefinition definition)
+    {
+        MenuItem item = new() { Header = definition.Name };
+        item.Click += (_, _) => ViewModel.AddEffect(definition.Create());
+        return item;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ImageEffectsViewModel.SelectedEffect))
+        {
+            UpdateEffectOptions();
         }
     }
 
-    private async void EditEffectAsync(ImageEffectItemViewModel item)
+    private void UpdateEffectOptions()
     {
-        if (await new ImageEffectOptionsWindow(item.Effect).ShowDialog<bool>(this))
-        {
-            ViewModel.EffectOptionsChanged(item);
-        }
+        ImageEffectItemViewModel? item = ViewModel.SelectedEffect;
+        _effectOptionsPanel.SetEffect(item?.Effect, item == null ? null : () => ViewModel.EffectOptionsChanged(item));
     }
 
     private async void PackagePresetAsync(ImageEffectPreset preset)
@@ -82,16 +137,28 @@ public partial class ImageEffectsWindow : Window
         }
     }
 
-    private void OnEffectDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (ViewModel.SelectedEffect != null) EditEffectAsync(ViewModel.SelectedEffect);
-    }
-
     private async void OnClearEffectsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (await new ImageEffectsConfirmationWindow("Clear all effects from the selected preset?").ShowDialog<bool>(this))
+        if (await new ImageEffectsConfirmationWindow(Localization.Strings.ImageEffectsWindow_Clear_confirmation).ShowDialog<bool>(this))
         {
             ViewModel.ClearEffectsCommand.Execute(null);
+        }
+    }
+
+    private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control previewSurface &&
+            e.GetCurrentPoint(previewSurface).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
+        {
+            byte[]? imageData = ViewModel.GetPreviewImageData();
+            if (imageData != null)
+            {
+                string displayName = string.IsNullOrWhiteSpace(ViewModel.FilePath)
+                    ? Localization.Strings.ImageEffectsWindow_Preview_name
+                    : Path.GetFileName(ViewModel.FilePath);
+                ImageViewerWindowIntegration.ShowImage(imageData, displayName, this);
+                e.Handled = true;
+            }
         }
     }
 

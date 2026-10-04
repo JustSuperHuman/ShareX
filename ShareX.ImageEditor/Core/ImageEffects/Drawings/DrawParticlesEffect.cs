@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Drawings;
@@ -249,7 +249,8 @@ public sealed class DrawParticlesEffect : ImageEffectBase
 
         if (alpha < 255)
         {
-            paint.ColorFilter = SKColorFilter.CreateBlendMode(new SKColor(255, 255, 255, (byte)alpha), SKBlendMode.Modulate);
+            using var ownedColorFilter1 = SKColorFilter.CreateBlendMode(new SKColor(255, 255, 255, (byte)alpha), SKBlendMode.Modulate);
+            paint.ColorFilter = ownedColorFilter1;
         }
 
         using SKImage particleImage = SKImage.FromBitmap(particle);

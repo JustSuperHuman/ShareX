@@ -61,9 +61,7 @@ namespace ShareX.HelpersLib
         [Description("gif")]
         GIF,
         [Description("bmp")]
-        BMP,
-        [Description("tif")]
-        TIFF
+        BMP
     }
 
     public enum HashType
@@ -88,7 +86,7 @@ namespace ShareX.HelpersLib
         Inside
     }
 
-    public enum DownloaderFormStatus
+    public enum DownloaderWindowStatus
     {
         Waiting,
         DownloadStarted,
@@ -196,15 +194,6 @@ namespace ShareX.HelpersLib
         win64,
         win32,
         macos64
-    }
-
-    public enum StepType // Localized
-    {
-        Numbers,
-        LettersUppercase,
-        LettersLowercase,
-        RomanNumeralsUppercase,
-        RomanNumeralsLowercase
     }
 
     public enum CutOutEffectType // Localized

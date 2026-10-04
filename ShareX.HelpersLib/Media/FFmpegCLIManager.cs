@@ -1,4 +1,4 @@
-﻿#region License Information (GPL v3)
+#region License Information (GPL v3)
 
 /*
     ShareX - A program that allows you to take screenshots and share any file type
@@ -86,13 +86,18 @@ namespace ShareX.HelpersLib
 
         protected bool Run(string path, string args)
         {
+            if (!string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             StopRequested = false;
             int errorCode = Open(path, args);
             IsEncoding = false;
             bool result = errorCode == 0;
             if (!result && ShowError)
             {
-                OutputBox.Show(Output.ToString(), "FFmpeg error", true);
+                OutputBoxWindowIntegration.Show(Output.ToString(), Localization.Strings.FFmpegCLIManager_Error_title, true);
             }
             return result;
         }

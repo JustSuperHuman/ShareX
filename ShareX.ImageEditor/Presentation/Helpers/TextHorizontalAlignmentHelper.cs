@@ -1,4 +1,4 @@
-﻿#region License Information (GPL v3)
+#region License Information (GPL v3)
 
 /*
     ShareX - A program that allows you to take screenshots and share any file type
@@ -25,8 +25,9 @@
 
 using Avalonia.Layout;
 using Avalonia.Media;
-using ShareX.ImageEditor.Core.Annotations;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.Annotations;
+using ShareX.ImageEditor.Localization;
 
 namespace ShareX.ImageEditor.Presentation.Helpers;
 
@@ -36,10 +37,10 @@ public static class TextHorizontalAlignmentHelper
     {
         return alignment switch
         {
-            TextHorizontalAlignment.Left => "Left",
-            TextHorizontalAlignment.Center => "Center",
-            TextHorizontalAlignment.Right => "Right",
-            _ => "Center"
+            TextHorizontalAlignment.Left => Strings.TextHorizontalAlignmentHelper_Left,
+            TextHorizontalAlignment.Center => Strings.TextHorizontalAlignmentHelper_Center,
+            TextHorizontalAlignment.Right => Strings.TextHorizontalAlignmentHelper_Right,
+            _ => Strings.TextHorizontalAlignmentHelper_Center
         };
     }
 

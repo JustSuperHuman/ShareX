@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -26,7 +37,7 @@ public sealed partial class DirectoryIndexerViewModel : ViewModelBase
     public IReadOnlyList<IndexerOutputChoice> OutputChoices { get; } =
     [
         new("HTML", IndexerOutput.Html, "html"),
-        new("Text", IndexerOutput.Txt, "txt"),
+        new(Localization.Strings.DirectoryIndexerViewModel_Text, IndexerOutput.Txt, "txt"),
         new("XML", IndexerOutput.Xml, "xml"),
         new("JSON", IndexerOutput.Json, "json")
     ];
@@ -178,7 +189,7 @@ public sealed partial class DirectoryIndexerViewModel : ViewModelBase
             return;
         }
 
-        string suggestedName = $"Index for {Path.GetFileName(FolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}";
+        string suggestedName = string.Format(Localization.Strings.DirectoryIndexerViewModel_Index_for, Path.GetFileName(FolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
         if (await SaveRequested(Source, suggestedName, SelectedOutput.Extension))
         {
             CloseRequested?.Invoke();

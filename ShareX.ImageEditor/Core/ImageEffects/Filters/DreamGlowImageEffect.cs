@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Filters;
@@ -54,10 +54,11 @@ public sealed class DreamGlowImageEffect : ImageEffectBase
         int w = source.Width, h = source.Height;
 
         // Create blurred version
-        SKBitmap blurred = new(w, h, source.ColorType, source.AlphaType);
+        using SKBitmap blurred = new(w, h, source.ColorType, source.AlphaType);
         using (SKCanvas blurCanvas = new(blurred))
         {
-            using SKPaint blurPaint = new() { ImageFilter = SKImageFilter.CreateBlur(Radius, Radius) };
+            using var ownedImageFilter1 = SKImageFilter.CreateBlur(Radius, Radius);
+            using SKPaint blurPaint = new() { ImageFilter = ownedImageFilter1 };
             blurCanvas.DrawBitmap(source, 0, 0, blurPaint);
         }
 
@@ -70,7 +71,6 @@ public sealed class DreamGlowImageEffect : ImageEffectBase
             BlendMode = SKBlendMode.Screen
         };
         canvas.DrawBitmap(blurred, 0, 0, blendPaint);
-        blurred.Dispose();
 
         return result;
     }

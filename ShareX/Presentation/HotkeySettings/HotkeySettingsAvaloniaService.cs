@@ -8,34 +8,43 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
 
+using Avalonia.Threading;
 using ShareX.HelpersLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
 
 namespace ShareX;
 
 internal sealed class HotkeySettingsAvaloniaService : IHotkeySettingsService
 {
     private readonly HotkeyManager _manager;
-    private readonly MainForm _mainForm;
     private readonly Action _closed;
     private readonly IReadOnlyList<HotkeyTaskOption> _taskOptions;
     private bool _disposed;
 
     public event EventHandler StateChanged;
 
-    public bool AreHotkeysDisabled => InvokeOnMainThread(() => Program.Settings.DisableHotkeys);
+    public bool AreHotkeysDisabled => InvokeOnMainThread(() => ApplicationState.Settings.DisableHotkeys);
 
-    public HotkeySettingsAvaloniaService(HotkeyManager manager, MainForm mainForm, Action closed)
+    public HotkeySettingsAvaloniaService(HotkeyManager manager, Action closed)
     {
         _manager = manager;
-        _mainForm = mainForm;
         _closed = closed;
         _taskOptions = Helpers.GetEnums<HotkeyType>()
             .Select(value => new EnumInfo(value))
@@ -126,9 +135,11 @@ internal sealed class HotkeySettingsAvaloniaService : IHotkeySettingsService
         HotkeySettings settings = GetSettings(item);
         InvokeOnMainThread(() =>
         {
-            settings.TaskSettings.SetDefaultSettings();
-            using TaskSettingsForm form = new(settings.TaskSettings);
-            form.ShowDialog(_mainForm);
+            TaskSettingsIntegration.Show(settings.TaskSettings, false, () =>
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+                SettingManager.SaveHotkeysConfigAsync();
+            });
         });
     }
 
@@ -142,7 +153,7 @@ internal sealed class HotkeySettingsAvaloniaService : IHotkeySettingsService
 
             if (finalize && settings.HotkeyInfo.IsOnlyModifiers)
             {
-                settings.HotkeyInfo.Hotkey = Keys.None;
+                settings.HotkeyInfo.Hotkey = InputKey.None;
                 settings.HotkeyInfo.Win = false;
             }
 
@@ -158,7 +169,7 @@ internal sealed class HotkeySettingsAvaloniaService : IHotkeySettingsService
         {
             if (settings.HotkeyInfo.IsOnlyModifiers)
             {
-                settings.HotkeyInfo.Hotkey = Keys.None;
+                settings.HotkeyInfo.Hotkey = InputKey.None;
                 settings.HotkeyInfo.Win = false;
             }
 
@@ -219,36 +230,36 @@ internal sealed class HotkeySettingsAvaloniaService : IHotkeySettingsService
         return (HotkeySettings)item.Source;
     }
 
-    private static Keys ConvertGesture(HotkeyGesture gesture)
+    private static InputKey ConvertGesture(HotkeyGesture gesture)
     {
-        Keys key = gesture.KeyName switch
+        InputKey key = gesture.KeyName switch
         {
-            nameof(Avalonia.Input.Key.LeftCtrl) => Keys.LControlKey,
-            nameof(Avalonia.Input.Key.RightCtrl) => Keys.RControlKey,
-            nameof(Avalonia.Input.Key.LeftShift) => Keys.LShiftKey,
-            nameof(Avalonia.Input.Key.RightShift) => Keys.RShiftKey,
-            nameof(Avalonia.Input.Key.LeftAlt) => Keys.LMenu,
-            nameof(Avalonia.Input.Key.RightAlt) => Keys.RMenu,
-            nameof(Avalonia.Input.Key.Enter) => Keys.Enter,
-            nameof(Avalonia.Input.Key.CapsLock) => Keys.CapsLock,
-            nameof(Avalonia.Input.Key.PageUp) => Keys.PageUp,
-            nameof(Avalonia.Input.Key.PageDown) => Keys.PageDown,
-            nameof(Avalonia.Input.Key.PrintScreen) => Keys.PrintScreen,
-            _ when Enum.TryParse(gesture.KeyName, true, out Keys parsed) => parsed,
-            _ => Keys.None
+            nameof(Avalonia.Input.Key.LeftCtrl) => InputKey.ControlKey,
+            nameof(Avalonia.Input.Key.RightCtrl) => InputKey.ControlKey,
+            nameof(Avalonia.Input.Key.LeftShift) => InputKey.ShiftKey,
+            nameof(Avalonia.Input.Key.RightShift) => InputKey.ShiftKey,
+            nameof(Avalonia.Input.Key.LeftAlt) => InputKey.Menu,
+            nameof(Avalonia.Input.Key.RightAlt) => InputKey.Menu,
+            nameof(Avalonia.Input.Key.Enter) => InputKey.Enter,
+            nameof(Avalonia.Input.Key.CapsLock) => InputKey.CapsLock,
+            nameof(Avalonia.Input.Key.PageUp) => InputKey.PageUp,
+            nameof(Avalonia.Input.Key.PageDown) => InputKey.PageDown,
+            nameof(Avalonia.Input.Key.PrintScreen) => InputKey.PrintScreen,
+            _ when Enum.TryParse(gesture.KeyName, true, out InputKey parsed) => parsed,
+            _ => InputKey.None
         };
 
         if (gesture.Control)
         {
-            key |= Keys.Control;
+            key |= InputKey.Control;
         }
         if (gesture.Shift)
         {
-            key |= Keys.Shift;
+            key |= InputKey.Shift;
         }
         if (gesture.Alt)
         {
-            key |= Keys.Alt;
+            key |= InputKey.Alt;
         }
 
         return key;
@@ -261,29 +272,24 @@ internal sealed class HotkeySettingsAvaloniaService : IHotkeySettingsService
 
     private void InvokeOnMainThread(Action action)
     {
-        if (_mainForm.IsDisposed)
+        if (Dispatcher.UIThread.CheckAccess())
         {
-            return;
-        }
-
-        if (_mainForm.InvokeRequired)
-        {
-            _mainForm.Invoke(action);
+            action();
         }
         else
         {
-            action();
+            Dispatcher.UIThread.Invoke(action);
         }
     }
 
     private T InvokeOnMainThread<T>(Func<T> action)
     {
-        if (_mainForm.InvokeRequired)
+        if (Dispatcher.UIThread.CheckAccess())
         {
-            return (T)_mainForm.Invoke(action);
+            return action();
         }
 
-        return action();
+        return Dispatcher.UIThread.Invoke(action);
     }
 
     public void Dispose()
