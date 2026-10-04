@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Drawings;
@@ -206,7 +206,8 @@ public sealed class DrawImageEffect : ImageEffectBase
         if (Opacity < 100)
         {
             byte alpha = (byte)Math.Round(255 * (Opacity / 100f));
-            paint.ColorFilter = SKColorFilter.CreateBlendMode(new SKColor(255, 255, 255, alpha), SKBlendMode.Modulate);
+            using var ownedColorFilter1 = SKColorFilter.CreateBlendMode(new SKColor(255, 255, 255, alpha), SKBlendMode.Modulate);
+            paint.ColorFilter = ownedColorFilter1;
         }
 
         if (Tile)

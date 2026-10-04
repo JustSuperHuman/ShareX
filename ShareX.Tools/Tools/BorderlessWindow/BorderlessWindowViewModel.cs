@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -126,7 +137,7 @@ public sealed partial class BorderlessWindowViewModel : ViewModelBase, IDisposab
         {
             if (!_toggleWindow(title, ExcludeTaskbarArea))
             {
-                ErrorMessage = "Unable to find a window with the specified title.";
+                ErrorMessage = Localization.Strings.BorderlessWindowViewModel_Window_not_found;
                 OnPropertyChanged(nameof(HasError));
                 return;
             }
@@ -144,7 +155,7 @@ public sealed partial class BorderlessWindowViewModel : ViewModelBase, IDisposab
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Unable to toggle the selected window. {ex.Message}";
+            ErrorMessage = string.Format(Localization.Strings.BorderlessWindowViewModel_Unable_to_toggle, ex.Message);
             OnPropertyChanged(nameof(HasError));
             ToolsDiagnostics.ReportWarning(nameof(BorderlessWindowViewModel), "Failed to toggle borderless window state.", ex);
         }

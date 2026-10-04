@@ -26,15 +26,11 @@
 #nullable disable
 
 using ShareX.HelpersLib;
-using System;
-using System.Drawing;
-using System.IO;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+using Image = SkiaSharp.SKBitmap;
 
 namespace ShareX.Tools
 {
@@ -96,7 +92,7 @@ namespace ShareX.Tools
 
         public async Task<string> AnalyzeImage(string filePath, string input = null, string reasoningEffort = null, string textVerbosity = null)
         {
-            Image image = ImageHelpers.LoadImage(filePath);
+            using Image image = SkiaImageHelpers.LoadImage(filePath);
 
             return await AnalyzeImage(image, input, reasoningEffort, textVerbosity);
         }
@@ -107,7 +103,7 @@ namespace ShareX.Tools
 
             using (MemoryStream ms = new MemoryStream())
             {
-                ImageHelpers.SaveJPEG(image, ms, 90);
+                SkiaImageHelpers.SaveJPEG(image, ms, 90);
                 byte[] imageBytes = ms.ToArray();
                 string base64Image = Convert.ToBase64String(imageBytes);
                 imageDataUri = $"data:image/jpeg;base64,{base64Image}";
@@ -123,7 +119,7 @@ namespace ShareX.Tools
 
             if (string.IsNullOrEmpty(input))
             {
-                input = "What is in this image?";
+                input = Localization.Strings.AnalyzeImageViewModel_What_is_in_this_image;
             }
 
             ChatGPTLegacyRequest request = new ChatGPTLegacyRequest()

@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -30,9 +41,9 @@ public sealed partial class VideoThumbnailerViewModel : ViewModelBase
 
     public IReadOnlyList<VideoThumbnailOutputChoice> OutputLocations { get; } =
     [
-        new("Default screenshots folder", ThumbnailLocationType.DefaultFolder),
-        new("Same folder as video", ThumbnailLocationType.ParentFolder),
-        new("Custom folder", ThumbnailLocationType.CustomFolder)
+        new(Localization.Strings.VideoThumbnailerViewModel_Default_screenshots_folder, ThumbnailLocationType.DefaultFolder),
+        new(Localization.Strings.VideoThumbnailerViewModel_Same_folder_as_video, ThumbnailLocationType.ParentFolder),
+        new(Localization.Strings.VideoThumbnailerViewModel_Custom_folder, ThumbnailLocationType.CustomFolder)
     ];
 
     public IReadOnlyList<VideoThumbnailFormatChoice> ImageFormats { get; } = Enum.GetValues<EImageFormat>()
@@ -198,7 +209,7 @@ public sealed partial class VideoThumbnailerViewModel : ViewModelBase
             }
             else
             {
-                ErrorMessage = "No thumbnails were created. Check that the video is valid and FFmpeg can read it.";
+                ErrorMessage = Localization.Strings.VideoThumbnailerViewModel_No_thumbnails;
             }
         }
         catch (Exception ex)

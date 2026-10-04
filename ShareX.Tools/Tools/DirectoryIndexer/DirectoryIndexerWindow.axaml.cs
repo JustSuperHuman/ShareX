@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -61,7 +72,7 @@ public partial class DirectoryIndexerWindow : Window
     {
         IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Select folder to index",
+            Title = Localization.Strings.DirectoryIndexerWindow_Select_folder_to_index_dialog,
             AllowMultiple = false
         });
 
@@ -72,11 +83,11 @@ public partial class DirectoryIndexerWindow : Window
     {
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Select CSS file",
+            Title = Localization.Strings.DirectoryIndexerWindow_Select_CSS_file_dialog,
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("CSS files") { Patterns = ["*.css"] },
+                new FilePickerFileType(Localization.Strings.DirectoryIndexerWindow_CSS_files) { Patterns = ["*.css"] },
                 FilePickerFileTypes.All
             ]
         });
@@ -88,12 +99,12 @@ public partial class DirectoryIndexerWindow : Window
     {
         IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save directory index",
+            Title = Localization.Strings.DirectoryIndexerWindow_Save_directory_index_dialog,
             SuggestedFileName = suggestedName,
             DefaultExtension = extension,
             FileTypeChoices =
             [
-                new FilePickerFileType($"{extension.ToUpperInvariant()} file") { Patterns = [$"*.{extension}"] },
+                new FilePickerFileType(string.Format(Localization.Strings.DirectoryIndexerWindow_File_type, extension.ToUpperInvariant())) { Patterns = [$"*.{extension}"] },
                 FilePickerFileTypes.All
             ]
         });

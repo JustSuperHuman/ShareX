@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -92,7 +103,7 @@ public sealed partial class AnalyzeImageOptionsViewModel : ViewModelBase
     {
         IsBusy = true;
         StatusSuccess = false;
-        StatusText = "Testing...";
+        StatusText = Localization.Strings.AnalyzeImageOptionsViewModel_Testing;
 
         try
         {
@@ -115,7 +126,7 @@ public sealed partial class AnalyzeImageOptionsViewModel : ViewModelBase
     {
         IsBusy = true;
         StatusSuccess = false;
-        StatusText = "Loading models...";
+        StatusText = Localization.Strings.AnalyzeImageOptionsViewModel_Loading_models;
 
         try
         {
@@ -130,11 +141,11 @@ public sealed partial class AnalyzeImageOptionsViewModel : ViewModelBase
             {
                 OpenAIModel = models.Contains(OpenAIModel) ? OpenAIModel : models[0];
                 StatusSuccess = true;
-                StatusText = $"{models.Count} models loaded.";
+                StatusText = string.Format(Localization.Strings.AnalyzeImageOptionsViewModel_Models_loaded, models.Count);
             }
             else
             {
-                StatusText = "No models found.";
+                StatusText = Localization.Strings.AnalyzeImageOptionsViewModel_No_models_found;
             }
         }
         catch (Exception ex)

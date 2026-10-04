@@ -25,10 +25,8 @@
 
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
-using ShareX.Tools;
 using ShareX.AvaloniaUI.Theming;
 
 namespace ShareX.Tools;
@@ -72,7 +70,7 @@ public partial class ImageCombinerWindow : Window
     {
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Add images",
+            Title = Localization.Strings.ImageCombinerWindow_Add_images_dialog,
             AllowMultiple = true,
             FileTypeFilter = [FilePickerFileTypes.ImageAll]
         });

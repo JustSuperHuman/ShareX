@@ -30,8 +30,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using ShareX.AvaloniaUI.Theming;
 using ShareX.AvaloniaUI.Input;
+using ShareX.AvaloniaUI.Theming;
 using System.Runtime.InteropServices;
 
 namespace ShareX.AvaloniaUI.Windows
@@ -241,6 +241,7 @@ namespace ShareX.AvaloniaUI.Windows
             }
 
             MovePreviewNextToCursor(clientPoint);
+            _pickerPreview.Opacity = 1;
         }
 
         private void MovePreviewNextToCursor(Point cursorPosition)

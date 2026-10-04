@@ -29,7 +29,6 @@ using ShareX.ImageEditor.Core.ImageEffects.Adjustments;
 using ShareX.ImageEditor.Core.ImageEffects.Filters;
 using ShareX.ImageEditor.Core.ImageEffects.Manipulations;
 using ShareX.ImageEditor.Integration;
-using ShareX.ImageEditor.Presentation.Rendering;
 
 namespace ShareX.ImageEditor.Presentation.ViewModels
 {
@@ -243,6 +242,7 @@ namespace ShareX.ImageEditor.Presentation.ViewModels
         /// </summary>
         public void UpdatePreviewImageOnly(SkiaSharp.SKBitmap preview, bool syncSourceState = false)
         {
+            if (_disposed) return;
             if (!IsBitmapAlive(preview))
             {
                 return;

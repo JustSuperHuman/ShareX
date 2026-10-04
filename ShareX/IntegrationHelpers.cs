@@ -1,4 +1,4 @@
-﻿#region License Information (GPL v3)
+#region License Information (GPL v3)
 
 /*
     ShareX - A program that allows you to take screenshots and share any file type
@@ -24,16 +24,20 @@
 #endregion License Information (GPL v3)
 
 using ShareX.HelpersLib;
-using ShareX.Properties;
+using ShareX.Localization;
 using System;
 using System.IO;
-using System.Windows.Forms;
+using System.Linq;
+using Windows.Management.Deployment;
+using MessageBox = ShareX.AvaloniaUI.MessageBox;
+using MessageBoxButtons = ShareX.AvaloniaUI.MessageBoxButtons;
+using MessageBoxIcon = ShareX.AvaloniaUI.MessageBoxIcon;
 
 namespace ShareX
 {
     public static class IntegrationHelpers
     {
-        private static readonly string ApplicationPath = $"\"{Application.ExecutablePath}\"";
+        private static readonly string ApplicationPath = $"\"{Environment.ProcessPath}\"";
         private static readonly string FileIconPath = $"\"{FileHelpers.GetAbsolutePath("ShareX_File_Icon.ico")}\"";
 
         private static readonly string ShellExtMenuName = "ShareX";
@@ -41,16 +45,23 @@ namespace ShareX
         private static readonly string ShellExtMenuFilesCmd = $@"{ShellExtMenuFiles}\command";
         private static readonly string ShellExtMenuDirectory = $@"Software\Classes\Directory\shell\{ShellExtMenuName}";
         private static readonly string ShellExtMenuDirectoryCmd = $@"{ShellExtMenuDirectory}\command";
-        private static readonly string ShellExtDesc = Resources.IntegrationHelpers_UploadWithShareX;
+        private static readonly string ShellExtDesc = Strings.IntegrationHelpers_UploadWithShareX;
         private static readonly string ShellExtIcon = $"{ApplicationPath},0";
         private static readonly string ShellExtPath = $"{ApplicationPath} \"%1\"";
 
         private static readonly string ShellExtEditName = "ShareXImageEditor";
         private static readonly string ShellExtEditImage = $@"Software\Classes\SystemFileAssociations\image\shell\{ShellExtEditName}";
         private static readonly string ShellExtEditImageCmd = $@"{ShellExtEditImage}\command";
-        private static readonly string ShellExtEditDesc = Resources.IntegrationHelpers_EditWithShareX;
+        private static readonly string ShellExtEditDesc = Strings.IntegrationHelpers_EditWithShareX;
         private static readonly string ShellExtEditIcon = $"{ApplicationPath},0";
         private static readonly string ShellExtEditPath = $"{ApplicationPath} -ImageEditor \"%1\"";
+
+        private static readonly string ShellExtEditVideoName = "ShareXVideoEditor";
+        private static readonly string ShellExtEditVideo = $@"Software\Classes\SystemFileAssociations\video\shell\{ShellExtEditVideoName}";
+        private static readonly string ShellExtEditVideoCmd = $@"{ShellExtEditVideo}\command";
+        private static readonly string ShellExtEditVideoDesc = Strings.IntegrationHelpers_EditWithShareX;
+        private static readonly string ShellExtEditVideoIcon = $"{ApplicationPath},0";
+        private static readonly string ShellExtEditVideoPath = $"{ApplicationPath} -VideoEditor \"%1\"";
 
         private static readonly string ShellCustomUploaderExtensionPath = @"Software\Classes\.sxcu";
         private static readonly string ShellCustomUploaderExtensionValue = "ShareX.sxcu";
@@ -171,6 +182,132 @@ namespace ShareX
         private static void UnregisterEditShellContextMenuButton()
         {
             RegistryHelpers.RemoveRegistry(ShellExtEditImage);
+        }
+
+        public static bool CheckEditVideoShellContextMenuButton()
+        {
+            try
+            {
+                return CheckVideoEditorPackage() || RegistryHelpers.CheckStringValue(ShellExtEditVideoCmd, null, ShellExtEditVideoPath);
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
+
+            return false;
+        }
+
+        public static void CreateEditVideoShellContextMenuButton(bool create)
+        {
+            try
+            {
+                if (create)
+                {
+                    if (RegisterVideoEditorPackage())
+                    {
+                        // The packaged IExplorerCommand handler shows up in both the Windows 11 menu and
+                        // the classic menu, so the registry verb would only produce a duplicate entry.
+                        UnregisterEditVideoShellContextMenuButton();
+                    }
+                    else
+                    {
+                        UnregisterEditVideoShellContextMenuButton();
+                        RegisterEditVideoShellContextMenuButton();
+                    }
+                }
+                else
+                {
+                    UnregisterVideoEditorPackage();
+                    UnregisterEditVideoShellContextMenuButton();
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
+        }
+
+        private static void RegisterEditVideoShellContextMenuButton()
+        {
+            RegistryHelpers.CreateRegistry(ShellExtEditVideo, ShellExtEditVideoDesc);
+            RegistryHelpers.CreateRegistry(ShellExtEditVideo, "Icon", ShellExtEditVideoIcon);
+            RegistryHelpers.CreateRegistry(ShellExtEditVideoCmd, ShellExtEditVideoPath);
+        }
+
+        private static void UnregisterEditVideoShellContextMenuButton()
+        {
+            RegistryHelpers.RemoveRegistry(ShellExtEditVideo);
+        }
+
+        // Windows 11 shows registry verbs only under "Show more options". The top-level menu needs an
+        // IExplorerCommand handler with package identity, so a loose package (AppxManifest.xml + the
+        // ShareX.ShellExtension COM server, deployed next to ShareX.exe) is registered for the current
+        // user. Unsigned dev builds register through Developer Mode; when that is not possible the
+        // caller falls back to the classic registry verb.
+        private const string VideoEditorPackageIdentityName = "ShareX.ShellExtension";
+
+        private static bool CheckVideoEditorPackage()
+        {
+            try
+            {
+                PackageManager packageManager = new PackageManager();
+                return packageManager.FindPackagesForUser(string.Empty).Any(p => p.Id.Name == VideoEditorPackageIdentityName);
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
+
+            return false;
+        }
+
+        private static bool RegisterVideoEditorPackage()
+        {
+            try
+            {
+                if (Environment.OSVersion.Version.Build < 22000) return false;
+
+                string applicationFolder = Path.GetDirectoryName(Environment.ProcessPath);
+                string manifestPath = Path.Combine(applicationFolder, "AppxManifest.xml");
+                string comHostPath = Path.Combine(applicationFolder, "ShareX.ShellExtension.comhost.dll");
+                if (!File.Exists(manifestPath) || !File.Exists(comHostPath)) return false;
+
+                PackageManager packageManager = new PackageManager();
+                RegisterPackageOptions options = new RegisterPackageOptions
+                {
+                    DeveloperMode = true,
+                    ForceUpdateFromAnyVersion = true
+                };
+
+                DeploymentResult result = packageManager.RegisterPackageByUriAsync(new Uri(manifestPath), options).AsTask().GetAwaiter().GetResult();
+
+                if (result.IsRegistered) return true;
+
+                DebugHelper.WriteLine($"Video editor context menu package registration failed: {result.ErrorText}");
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
+
+            return false;
+        }
+
+        private static void UnregisterVideoEditorPackage()
+        {
+            try
+            {
+                PackageManager packageManager = new PackageManager();
+                foreach (Windows.ApplicationModel.Package package in packageManager.FindPackagesForUser(string.Empty).Where(p => p.Id.Name == VideoEditorPackageIdentityName).ToList())
+                {
+                    packageManager.RemovePackageAsync(package.Id.FullName, RemovalOptions.PreserveApplicationData).AsTask().GetAwaiter().GetResult();
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
         }
 
         public static bool CheckCustomUploaderExtension()
@@ -365,22 +502,22 @@ namespace ShareX
 
         public static bool CheckSendToMenuButton()
         {
-            return ShortcutHelpers.CheckShortcut(Environment.SpecialFolder.SendTo, "ShareX", Application.ExecutablePath);
+            return ShortcutHelpers.CheckShortcut(Environment.SpecialFolder.SendTo, "ShareX", Environment.ProcessPath);
         }
 
         public static bool CreateSendToMenuButton(bool create)
         {
-            return ShortcutHelpers.SetShortcut(create, Environment.SpecialFolder.SendTo, "ShareX", Application.ExecutablePath);
+            return ShortcutHelpers.SetShortcut(create, Environment.SpecialFolder.SendTo, "ShareX", Environment.ProcessPath);
         }
 
         public static bool CheckSteamShowInApp()
         {
-            return File.Exists(Program.SteamInAppFilePath);
+            return File.Exists(AppPaths.SteamInAppFilePath);
         }
 
         public static void SteamShowInApp(bool showInApp)
         {
-            string path = Program.SteamInAppFilePath;
+            string path = AppPaths.SteamInAppFilePath;
 
             try
             {
@@ -400,7 +537,7 @@ namespace ShareX
                 return;
             }
 
-            MessageBox.Show(Resources.ApplicationSettingsForm_cbSteamShowInApp_CheckedChanged_For_settings_to_take_effect_ShareX_needs_to_be_reopened_from_Steam_,
+            MessageBox.Show(Strings.ApplicationSettingsForm_cbSteamShowInApp_CheckedChanged_For_settings_to_take_effect_ShareX_needs_to_be_reopened_from_Steam_,
                 "ShareX", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -409,6 +546,7 @@ namespace ShareX
             StartupManager.State = StartupState.Disabled;
             CreateShellContextMenuButton(false);
             CreateEditShellContextMenuButton(false);
+            CreateEditVideoShellContextMenuButton(false);
             CreateCustomUploaderExtension(false);
             CreateImageEffectExtension(false);
             CreateSendToMenuButton(false);

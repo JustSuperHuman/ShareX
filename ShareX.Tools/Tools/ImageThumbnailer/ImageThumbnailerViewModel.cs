@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -15,9 +26,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ShareX.HelpersLib;
-using ShareX.Tools.Infrastructure;
 using System.Collections.ObjectModel;
 using System.Drawing;
+using Bitmap = SkiaSharp.SKBitmap;
 
 namespace ShareX.Tools;
 
@@ -60,7 +71,7 @@ public sealed partial class ImageThumbnailerViewModel : ViewModelBase
     public bool CanRemove => _selectedImages.Count > 0 || SelectedImage != null;
     public bool CanGenerate => !IsBusy && HasImages && Width > 0 && Height > 0 &&
         Directory.Exists(OutputFolderPath) && !string.IsNullOrWhiteSpace(OutputFileName);
-    public string ImageCountText => $"{Images.Count} image{(Images.Count == 1 ? string.Empty : "s")}";
+    public string ImageCountText => string.Format(Images.Count == 1 ? Localization.Strings.ImageThumbnailerViewModel_One_image : Localization.Strings.ImageThumbnailerViewModel_Image_count, Images.Count);
 
     [RelayCommand]
     private async Task AddAsync()
@@ -141,11 +152,11 @@ public sealed partial class ImageThumbnailerViewModel : ViewModelBase
         }
 
         IsBusy = true;
-        Message = "Generating thumbnails...";
+        Message = Localization.Strings.ImageThumbnailerViewModel_Generating;
         try
         {
             List<string> outputFiles = await Task.Run(GenerateThumbnails);
-            Message = $"Generated {outputFiles.Count} thumbnail{(outputFiles.Count == 1 ? string.Empty : "s")}.";
+            Message = string.Format(outputFiles.Count == 1 ? Localization.Strings.ImageThumbnailerViewModel_Generated_one : Localization.Strings.ImageThumbnailerViewModel_Generated_many, outputFiles.Count);
             if (outputFiles.Count > 0)
             {
                 FileHelpers.OpenFolderWithFile(outputFiles[0]);
@@ -154,7 +165,7 @@ public sealed partial class ImageThumbnailerViewModel : ViewModelBase
         catch (Exception ex)
         {
             ToolsDiagnostics.ReportWarning(nameof(ImageThumbnailerViewModel), "Failed to generate thumbnails.", ex);
-            Message = $"Generation failed: {ex.Message}";
+            Message = string.Format(Localization.Strings.ImageThumbnailerViewModel_Generation_failed, ex.Message);
         }
         finally
         {
@@ -195,18 +206,18 @@ public sealed partial class ImageThumbnailerViewModel : ViewModelBase
                 continue;
             }
 
-            using Bitmap? source = ImageHelpers.LoadImage(filePath);
+            using Bitmap? source = SkiaImageHelpers.LoadImage(filePath);
             if (source == null)
             {
                 continue;
             }
 
-            using Bitmap thumbnail = ImageHelpers.CreateThumbnail(source, (int)Width, (int)Height);
-            using Bitmap output = ImageHelpers.FillBackground(thumbnail, Color.White);
+            using Bitmap thumbnail = SkiaImageHelpers.CreateThumbnail(source, (int)Width, (int)Height);
+            using Bitmap output = SkiaImageHelpers.FillBackground(thumbnail, Color.White);
             string sourceName = Path.GetFileNameWithoutExtension(filePath);
             string outputPath = Path.Combine(OutputFolderPath, OutputFileName.Replace("$filename", sourceName));
             outputPath = Path.ChangeExtension(outputPath, "jpg");
-            ImageHelpers.SaveJPEG(output, outputPath, (int)Quality);
+            SkiaImageHelpers.SaveJPEG(output, outputPath, (int)Quality);
             outputFiles.Add(outputPath);
         }
 

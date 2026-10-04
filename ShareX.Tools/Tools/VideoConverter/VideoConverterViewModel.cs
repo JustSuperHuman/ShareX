@@ -25,7 +25,6 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ShareX.Tools.Infrastructure;
 using System.Text;
 
 namespace ShareX.Tools;
@@ -104,7 +103,7 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
     private double _progress;
 
     [ObservableProperty]
-    private string _statusText = "Choose a video to get started.";
+    private string _statusText = Localization.Strings.VideoConverterViewModel_Choose_video;
 
     public VideoConverterViewModel(
         VideoConverterOptions options,
@@ -122,7 +121,7 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
         _videoBitrate = options.VideoQualityBitrate;
         _autoOpenFolder = options.AutoOpenFolder;
         _statusText = string.IsNullOrWhiteSpace(_inputFilePath)
-            ? "Choose a video or animation to get started."
+            ? Localization.Strings.VideoConverterViewModel_Choose_video_or_animation
             : string.Empty;
 
         if (!string.IsNullOrWhiteSpace(inputFilePath))
@@ -135,7 +134,7 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
     public Func<string, Task<string?>>? SelectOutputFolderRequested { get; set; }
 
     public bool IsIdle => !IsEncoding;
-    public string InputFileDisplay => string.IsNullOrWhiteSpace(InputFilePath) ? "No file selected" : InputFilePath;
+    public string InputFileDisplay => string.IsNullOrWhiteSpace(InputFilePath) ? Localization.Strings.VideoConverterViewModel_No_file_selected : InputFilePath;
     public bool ShowsQualityControls => SelectedCodec.Codec is not (VideoConverterCodec.Gif or VideoConverterCodec.Webp or VideoConverterCodec.Apng);
     public bool CanChooseRateControl => SelectedCodec.Codec is VideoConverterCodec.X264 or VideoConverterCodec.X265 or VideoConverterCodec.Vp8
         or VideoConverterCodec.Vp9 or VideoConverterCodec.Av1 or VideoConverterCodec.Xvid;
@@ -178,7 +177,7 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        string? filePath = await SelectInputFileRequested("Select video or animation");
+        string? filePath = await SelectInputFileRequested(Localization.Strings.VideoConverterViewModel_Select_input_dialog);
         if (!string.IsNullOrWhiteSpace(filePath))
         {
             LoadInput(filePath);
@@ -193,7 +192,7 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        string? folderPath = await SelectOutputFolderRequested("Select output folder");
+        string? folderPath = await SelectOutputFolderRequested(Localization.Strings.VideoConverterViewModel_Select_output_dialog);
         if (!string.IsNullOrWhiteSpace(folderPath))
         {
             OutputFolderPath = folderPath;
@@ -227,26 +226,26 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
 
         if (!File.Exists(InputFilePath))
         {
-            StatusText = "Select an existing input file.";
+            StatusText = Localization.Strings.VideoConverterViewModel_Select_existing_input;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(OutputFolderPath) || !Directory.Exists(OutputFolderPath))
         {
-            StatusText = "Select an existing output folder.";
+            StatusText = Localization.Strings.VideoConverterViewModel_Select_existing_output;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(OutputFileName))
         {
-            StatusText = "Enter an output file name.";
+            StatusText = Localization.Strings.VideoConverterViewModel_Enter_output_name;
             return;
         }
 
         PersistSettings();
         IsEncoding = true;
         Progress = 0;
-        StatusText = "Converting video...";
+        StatusText = Localization.Strings.VideoConverterViewModel_Converting;
         _cancellationTokenSource = new CancellationTokenSource();
         IProgress<double> progress = new Progress<double>(value => Progress = Math.Clamp(value, 0, 100));
 
@@ -258,30 +257,30 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
             if (result.Succeeded && !result.WasCancelled)
             {
                 Progress = 100;
-                StatusText = $"Conversion complete: {OutputFilePath}";
+                StatusText = string.Format(Localization.Strings.VideoConverterViewModel_Conversion_complete, OutputFilePath);
             }
             else if (result.WasCancelled)
             {
                 Progress = 0;
-                StatusText = "Conversion stopped.";
+                StatusText = Localization.Strings.VideoConverterViewModel_Conversion_stopped;
             }
             else
             {
                 Progress = 0;
                 StatusText = string.IsNullOrWhiteSpace(result.ErrorMessage)
-                    ? "Video conversion failed."
-                    : $"Video conversion failed: {result.ErrorMessage}";
+                    ? Localization.Strings.VideoConverterViewModel_Conversion_failed
+                    : string.Format(Localization.Strings.VideoConverterViewModel_Conversion_failed_message, result.ErrorMessage);
             }
         }
         catch (OperationCanceledException)
         {
             Progress = 0;
-            StatusText = "Conversion stopped.";
+            StatusText = Localization.Strings.VideoConverterViewModel_Conversion_stopped;
         }
         catch (Exception ex)
         {
             Progress = 0;
-            StatusText = $"Video conversion failed: {ex.Message}";
+            StatusText = string.Format(Localization.Strings.VideoConverterViewModel_Conversion_failed_message, ex.Message);
         }
         finally
         {
@@ -296,7 +295,7 @@ public sealed partial class VideoConverterViewModel : ViewModelBase, IDisposable
     {
         if (IsEncoding)
         {
-            StatusText = "Stopping conversion...";
+            StatusText = Localization.Strings.VideoConverterViewModel_Stopping;
             _cancellationTokenSource?.Cancel();
         }
     }

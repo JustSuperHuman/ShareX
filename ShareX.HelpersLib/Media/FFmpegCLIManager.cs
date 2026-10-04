@@ -1,4 +1,4 @@
-﻿#region License Information (GPL v3)
+#region License Information (GPL v3)
 
 /*
     ShareX - A program that allows you to take screenshots and share any file type
@@ -86,13 +86,18 @@ namespace ShareX.HelpersLib
 
         protected bool Run(string path, string args)
         {
+            if (!string.Equals(Path.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             StopRequested = false;
             int errorCode = Open(path, args);
             IsEncoding = false;
             bool result = errorCode == 0;
             if (!result && ShowError)
             {
-                OutputBox.Show(Output.ToString(), "FFmpeg error", true);
+                OutputBoxWindowIntegration.Show(Output.ToString(), Localization.Strings.FFmpegCLIManager_Error_title, true);
             }
             return result;
         }
@@ -186,21 +191,26 @@ namespace ShareX.HelpersLib
             Run($"-i \"{videoPath}\"");
             string output = Output.ToString();
 
-            Match matchInput = Regex.Match(output, @"Duration: (?<Duration>\d{2}:\d{2}:\d{2}\.\d{2}),.+?start: (?<Start>\d+\.\d+),.+?bitrate: (?<Bitrate>\d+) kb/s",
+            Match matchInput = Regex.Match(output, @"Duration:\s*(?<Duration>\d{2}:\d{2}:\d{2}\.\d+)",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-            if (matchInput.Success)
+            if (matchInput.Success && TimeSpan.TryParse(matchInput.Groups["Duration"].Value, CultureInfo.InvariantCulture, out TimeSpan duration))
             {
-                videoInfo.Duration = TimeSpan.Parse(matchInput.Groups["Duration"].Value);
-                //videoInfo.Start = TimeSpan.Parse(match.Groups["Start"].Value);
-                videoInfo.Bitrate = int.Parse(matchInput.Groups["Bitrate"].Value);
+                videoInfo.Duration = duration;
+
+                Match matchBitrate = Regex.Match(output, @"bitrate:\s*(?<Bitrate>\d+) kb/s",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (matchBitrate.Success)
+                {
+                    videoInfo.Bitrate = int.Parse(matchBitrate.Groups["Bitrate"].Value, CultureInfo.InvariantCulture);
+                }
             }
             else
             {
                 return null;
             }
 
-            Match matchVideoStream = Regex.Match(output, @"Stream #\d+:\d+(?:\(.+?\))?: Video: (?<Codec>.+?) \(.+?,.+?, (?<Width>\d+)x(?<Height>\d+).+?, (?<FPS>\d+(?:\.\d+)?) fps",
+            Match matchVideoStream = Regex.Match(output, @"Stream #\d+:\d+[^:\r\n]*: Video: (?<Codec>[^,\r\n]+),[^\r\n]*?(?<Width>\d{2,5})x(?<Height>\d{2,5})[^\r\n]*?,\s*(?<FPS>\d+(?:\.\d+)?) fps",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
             if (matchVideoStream.Success)
@@ -210,7 +220,7 @@ namespace ShareX.HelpersLib
                 videoInfo.VideoFPS = double.Parse(matchVideoStream.Groups["FPS"].Value, CultureInfo.InvariantCulture);
             }
 
-            Match matchAudioStream = Regex.Match(output, @"Stream #\d+:\d+(?:\(.+?\))?: Audio: (?<Codec>.+?)(?: \(|,)",
+            Match matchAudioStream = Regex.Match(output, @"Stream #\d+:\d+[^:\r\n]*: Audio: (?<Codec>.+?)(?: \(|,)",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
             if (matchAudioStream.Success)

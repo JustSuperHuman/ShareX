@@ -23,10 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using Avalonia.Controls;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Threading;
-using ShareX.AvaloniaUI.Integration;
 using ShareX.ImageEditor.Presentation.ViewModels;
 using ShareX.ImageEditor.Presentation.Views;
 using SkiaSharp;
@@ -50,10 +48,12 @@ namespace ShareX.ImageEditor.Integration
 
         public static void Initialize()
         {
-            AvaloniaBootstrapper.EnsureInitialized();
+            Avalonia.Application application = Avalonia.Application.Current ??
+                throw new InvalidOperationException("Avalonia must be initialized before the image editor integration.");
+
             EditorServices.EnsureDefaultDesktopWallpaperService();
 
-            if (!_editorStylesRegistered && Avalonia.Application.Current is { } application)
+            if (!_editorStylesRegistered)
             {
                 lock (application.Styles)
                 {
@@ -108,7 +108,6 @@ namespace ShareX.ImageEditor.Integration
                     }
 
                     vm.ShowFileMenu = true;
-                    vm.ShowOptionsButton = true;
                     vm.ShowTaskButtons = true;
                     vm.UseContinueWorkflow = taskMode;
                     vm.ShowBottomToolbar = true;

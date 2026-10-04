@@ -1,12 +1,31 @@
 #region License Information (GPL v3)
 
-/* ShareX - Copyright (c) 2007-2026 ShareX Team - GPL v3 */
+/*
+    ShareX - A program that allows you to take screenshots and share any file type
+    Copyright (c) 2007-2026 ShareX Team
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
+*/
 
 #endregion License Information (GPL v3)
 
 using Avalonia.Threading;
 using ShareX.AvaloniaUI.Integration;
-using System.Drawing;
+using SkiaSharp;
 
 namespace ShareX.ImageEffectsLib;
 
@@ -14,14 +33,14 @@ public static class ImageEffectsIntegration
 {
     private static ImageEffectsWindow? _singletonWindow;
 
-    public static ImageEffectsDialogResult ShowDialog(Bitmap? sourceImage, List<ImageEffectPreset> presets,
+    public static ImageEffectsDialogResult ShowDialog(SKBitmap? sourceImage, List<ImageEffectPreset> presets,
         int selectedPresetIndex, ImageEffectsWindowMode mode, ImageEffectsCallbacks? callbacks = null, string? filePath = null)
     {
         return ShowDialogAsync(sourceImage, presets, selectedPresetIndex, mode, callbacks, filePath)
             .ConfigureAwait(false).GetAwaiter().GetResult();
     }
 
-    public static Task<ImageEffectsDialogResult> ShowDialogAsync(Bitmap? sourceImage, List<ImageEffectPreset> presets,
+    public static Task<ImageEffectsDialogResult> ShowDialogAsync(SKBitmap? sourceImage, List<ImageEffectPreset> presets,
         int selectedPresetIndex, ImageEffectsWindowMode mode, ImageEffectsCallbacks? callbacks = null, string? filePath = null)
     {
         AvaloniaBootstrapper.EnsureInitialized();
@@ -38,11 +57,11 @@ public static class ImageEffectsIntegration
         return completion.Task;
     }
 
-    public static void ShowToolWindow(Bitmap sourceImage, List<ImageEffectPreset> presets, int selectedPresetIndex,
+    public static void ShowToolWindow(SKBitmap sourceImage, List<ImageEffectPreset> presets, int selectedPresetIndex,
         ImageEffectsCallbacks? callbacks = null, string? filePath = null, Action<int>? selectedPresetChanged = null)
     {
         AvaloniaBootstrapper.EnsureInitialized();
-        Bitmap sourceCopy = (Bitmap)sourceImage.Clone();
+        SKBitmap sourceCopy = (SKBitmap)sourceImage.Copy();
 
         Dispatcher.UIThread.Post(() =>
         {

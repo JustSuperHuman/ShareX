@@ -84,6 +84,8 @@ namespace ShareX.ImageEditor.Presentation.Views
         {
             SaveWindowState();
             base.OnClosed(e);
+            this.FindControl<EditorView>("EditorViewControl")?.DisposeWorkspace();
+            _viewModel.Dispose();
         }
 
         private void InitializeComponent()

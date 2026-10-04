@@ -23,8 +23,8 @@
 
 #endregion License Information (GPL v3)
 
-using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.ImageEditor.Core.ImageEffects.Parameters;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Filters;
@@ -167,15 +167,16 @@ public sealed class Windows11ImageEffect : ImageEffectBase
         // Subtle top highlight (mica-like)
         if (!DarkMode)
         {
+            using var ownedShader1 = SKShader.CreateLinearGradient(
+                    new SKPoint(windowX, windowY),
+                    new SKPoint(windowX, windowY + 2),
+                    [new SKColor(255, 255, 255, 80), new SKColor(255, 255, 255, 0)],
+                    SKShaderTileMode.Clamp);
             using SKPaint micaPaint = new()
             {
                 IsAntialias = true,
                 Style = SKPaintStyle.Fill,
-                Shader = SKShader.CreateLinearGradient(
-                    new SKPoint(windowX, windowY),
-                    new SKPoint(windowX, windowY + 2),
-                    [new SKColor(255, 255, 255, 80), new SKColor(255, 255, 255, 0)],
-                    SKShaderTileMode.Clamp)
+                Shader = ownedShader1
             };
 
             canvas.Save();

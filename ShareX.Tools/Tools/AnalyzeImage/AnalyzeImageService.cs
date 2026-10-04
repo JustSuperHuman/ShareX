@@ -8,14 +8,25 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
 
 using ShareX.HelpersLib;
-using System.Drawing;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Bitmap = SkiaSharp.SKBitmap;
 
 namespace ShareX.Tools;
 
@@ -35,7 +46,7 @@ public sealed class AnalyzeImageService
             return string.Empty;
         }
 
-        using Bitmap image = ImageHelpers.ByteArrayToBitmap(imageData);
+        using Bitmap image = SkiaImageHelpers.ByteArrayToBitmap(imageData);
         return await provider.AnalyzeImage(image, options.Input, options.OpenAIReasoningEffort, options.OpenAIVerbosity);
     }
 
@@ -44,7 +55,7 @@ public sealed class AnalyzeImageService
         using HttpRequestMessage? request = CreateModelsRequest(options, out string? error);
         if (request == null)
         {
-            return new AnalyzeImageConnectionResult(false, error ?? "Unable to create request.");
+            return new AnalyzeImageConnectionResult(false, error ?? Localization.Strings.AnalyzeImageService_Unable_to_create_request);
         }
 
         HttpClient client = HttpClientFactory.Create();
@@ -53,7 +64,7 @@ public sealed class AnalyzeImageService
 
         if (response.IsSuccessStatusCode)
         {
-            return new AnalyzeImageConnectionResult(true, "Connection OK.");
+            return new AnalyzeImageConnectionResult(true, Localization.Strings.AnalyzeImageService_Connection_OK);
         }
 
         string summary = string.IsNullOrWhiteSpace(response.ReasonPhrase) ? response.StatusCode.ToString() : response.ReasonPhrase;
@@ -103,7 +114,7 @@ public sealed class AnalyzeImageService
             case AIProvider.OpenAILegacy:
                 if (string.IsNullOrWhiteSpace(options.OpenAIAPIKey))
                 {
-                    error = "Missing OpenAI API key.";
+                    error = Localization.Strings.AnalyzeImageService_Missing_OpenAI_API_key;
                     return null;
                 }
 
@@ -115,7 +126,7 @@ public sealed class AnalyzeImageService
             case AIProvider.Gemini:
                 if (string.IsNullOrWhiteSpace(options.GeminiAPIKey))
                 {
-                    error = "Missing Gemini API key.";
+                    error = Localization.Strings.AnalyzeImageService_Missing_Gemini_API_key;
                     return null;
                 }
 
@@ -125,7 +136,7 @@ public sealed class AnalyzeImageService
             case AIProvider.OpenRouter:
                 if (string.IsNullOrWhiteSpace(options.OpenRouterAPIKey))
                 {
-                    error = "Missing OpenRouter API key.";
+                    error = Localization.Strings.AnalyzeImageService_Missing_OpenRouter_API_key;
                     return null;
                 }
 
@@ -134,7 +145,7 @@ public sealed class AnalyzeImageService
                 return openRouterRequest;
 
             default:
-                error = "Select a provider first.";
+                error = Localization.Strings.AnalyzeImageService_Select_provider_first;
                 return null;
         }
     }

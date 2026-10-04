@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -30,5 +30,18 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Tools\DirectoryIndexer\IndexerDefault.css" LogicalName="ShareX.Tools.DirectoryIndexer.IndexerDefault.css" />
+    <EmbeddedResource Include="Tools\VideoEditor\Cursors\pizza.cur" LogicalName="ShareX.Tools.VideoEditor.Cursors.pizza.cur" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Localization\Strings.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <Compile Update="Localization\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
 </Project>

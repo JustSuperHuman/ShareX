@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -42,10 +53,10 @@ public sealed partial class InspectWindowViewModel : ViewModelBase, IDisposable
     private bool _isTopLevelWindow;
 
     [ObservableProperty]
-    private string _selectedTitle = "No target selected";
+    private string _selectedTitle = Localization.Strings.InspectWindowViewModel_No_target_selected;
 
     [ObservableProperty]
-    private string _selectedSubtitle = "Pick a window or control to inspect its properties";
+    private string _selectedSubtitle = Localization.Strings.InspectWindowViewModel_Pick_target;
 
     [ObservableProperty]
     private string _selectedType = string.Empty;
@@ -182,24 +193,24 @@ public sealed partial class InspectWindowViewModel : ViewModelBase, IDisposable
             string styles = TryGet(() => _selectedWindow.Style.ToString().Replace(", ", Environment.NewLine));
             string extendedStyles = TryGet(() => _selectedWindow.ExStyle.ToString().Replace(", ", Environment.NewLine));
 
-            SelectedTitle = string.IsNullOrWhiteSpace(title) ? "Untitled window" : title;
+            SelectedTitle = string.IsNullOrWhiteSpace(title) ? Localization.Strings.InspectWindowViewModel_Untitled_window : title;
             SelectedSubtitle = string.IsNullOrWhiteSpace(processName)
                 ? className
                 : string.IsNullOrWhiteSpace(className) ? processName : $"{processName}  |  {className}";
-            SelectedType = IsTopLevelWindow ? "Window" : "Control";
+            SelectedType = IsTopLevelWindow ? Localization.Strings.InspectWindowViewModel_Window : Localization.Strings.InspectWindowViewModel_Control;
             ReplaceSelectedIcon(InspectWindowService.GetWindowIcon(handle));
             Details =
             [
-                new("Window handle", $"0x{handle.ToInt64():X8}"),
-                new("Window title", title),
-                new("Class name", className),
-                new("Process name", processName),
-                new("Process file name", processFileName),
-                new("Process identifier", processId),
-                new("Window rectangle", FormatRectangle(windowRectangle)),
-                new("Client rectangle", FormatRectangle(clientRectangle)),
-                new("Window styles", styles, true),
-                new("Extended window styles", extendedStyles, true)
+                new(Localization.Strings.InspectWindowViewModel_Window_handle, $"0x{handle.ToInt64():X8}"),
+                new(Localization.Strings.InspectWindowViewModel_Window_title, title),
+                new(Localization.Strings.InspectWindowViewModel_Class_name, className),
+                new(Localization.Strings.InspectWindowViewModel_Process_name, processName),
+                new(Localization.Strings.InspectWindowViewModel_Process_file_name, processFileName),
+                new(Localization.Strings.InspectWindowViewModel_Process_identifier, processId),
+                new(Localization.Strings.InspectWindowViewModel_Window_rectangle, FormatRectangle(windowRectangle)),
+                new(Localization.Strings.InspectWindowViewModel_Client_rectangle, FormatRectangle(clientRectangle)),
+                new(Localization.Strings.InspectWindowViewModel_Window_styles, styles, true),
+                new(Localization.Strings.InspectWindowViewModel_Extended_window_styles, extendedStyles, true)
             ];
 
             if (IsTopLevelWindow)
@@ -227,8 +238,8 @@ public sealed partial class InspectWindowViewModel : ViewModelBase, IDisposable
         _selectedWindow = null;
         HasSelection = false;
         IsTopLevelWindow = false;
-        SelectedTitle = "No target selected";
-        SelectedSubtitle = "Pick a window or control to inspect its properties";
+        SelectedTitle = Localization.Strings.InspectWindowViewModel_No_target_selected;
+        SelectedSubtitle = Localization.Strings.InspectWindowViewModel_Pick_target;
         SelectedType = string.Empty;
         ReplaceSelectedIcon(null);
         Details = [];
@@ -240,7 +251,7 @@ public sealed partial class InspectWindowViewModel : ViewModelBase, IDisposable
     {
         return rectangle.IsEmpty
             ? string.Empty
-            : $"X: {rectangle.X}  Y: {rectangle.Y}  |  Width: {rectangle.Width}  Height: {rectangle.Height}";
+            : string.Format(Localization.Strings.InspectWindowViewModel_Rectangle_format, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
     }
 
     private static string TryGet(Func<string> valueFactory)

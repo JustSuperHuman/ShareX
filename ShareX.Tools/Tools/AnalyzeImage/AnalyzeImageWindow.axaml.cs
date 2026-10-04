@@ -8,6 +8,17 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+    Optionally you can also view the license at <http://www.gnu.org/licenses/>.
 */
 
 #endregion License Information (GPL v3)
@@ -18,6 +29,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using ShareX.AvaloniaUI.Theming;
+using ShareX.HelpersLib;
 
 namespace ShareX.Tools;
 
@@ -72,7 +84,7 @@ public partial class AnalyzeImageWindow : Window
     {
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Select image",
+            Title = Localization.Strings.AnalyzeImageWindow_Select_image_dialog,
             AllowMultiple = false,
             FileTypeFilter = [FilePickerFileTypes.ImageAll]
         });
@@ -82,10 +94,10 @@ public partial class AnalyzeImageWindow : Window
 
     private async Task<byte[]?> SelectRegionAsync()
     {
-        WindowState previousState = WindowState;
+        Avalonia.Controls.WindowState previousState = WindowState;
         try
         {
-            WindowState = WindowState.Minimized;
+            WindowState = Avalonia.Controls.WindowState.Minimized;
             await Task.Delay(250);
             return await _captureRegion();
         }
@@ -134,7 +146,7 @@ public partial class AnalyzeImageWindow : Window
             return;
         }
 
-        new ImageViewerWindow(data, _viewModel.ImageDescription).Show(this);
+        ImageViewerWindowIntegration.ShowImage(data, _viewModel.ImageDescription, this);
         e.Handled = true;
     }
 }

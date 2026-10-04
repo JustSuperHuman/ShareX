@@ -1,0 +1,7 @@
+{
+  "name": "sharex-dev",
+  "private": true,
+  "scripts": {
+    "update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update.ps1"
+  }
+}

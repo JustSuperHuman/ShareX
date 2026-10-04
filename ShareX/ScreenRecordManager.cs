@@ -1,4 +1,4 @@
-﻿#region License Information (GPL v3)
+#region License Information (GPL v3)
 
 /*
     ShareX - A program that allows you to take screenshots and share any file type
@@ -24,13 +24,16 @@
 #endregion License Information (GPL v3)
 
 using ShareX.HelpersLib;
-using ShareX.Properties;
+using ShareX.Localization;
 using ShareX.ScreenCaptureLib;
+using ShareX.Tools;
 using System;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+using MessageBox = ShareX.AvaloniaUI.MessageBox;
+using MessageBoxButtons = ShareX.AvaloniaUI.MessageBoxButtons;
+using MessageBoxIcon = ShareX.AvaloniaUI.MessageBoxIcon;
 
 namespace ShareX
 {
@@ -39,9 +42,11 @@ namespace ShareX
         public static bool IsRecording { get; private set; }
 
         private static ScreenRecorder screenRecorder;
-        private static ScreenRecordForm recordForm;
+        private static ScreenRecordWindow recordForm;
+        private static MouseMotionRecorder mouseMotionRecorder;
+        private static ScreenRecordingMotionData pendingMotionData;
 
-        public static void StartStopRecording(ScreenRecordOutput outputType, ScreenRecordStartMethod startMethod, TaskSettings taskSettings)
+        public static async void StartStopRecording(ScreenRecordOutput outputType, ScreenRecordStartMethod startMethod, TaskSettings taskSettings)
         {
             if (IsRecording)
             {
@@ -52,7 +57,7 @@ namespace ShareX
             }
             else
             {
-                StartRecording(outputType, taskSettings, startMethod);
+                await StartRecording(outputType, taskSettings, startMethod);
             }
         }
 
@@ -80,7 +85,7 @@ namespace ShareX
             }
         }
 
-        private static void StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings, ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region)
+        private static async Task StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings, ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region)
         {
             if (outputType == ScreenRecordOutput.GIF)
             {
@@ -113,14 +118,14 @@ namespace ShareX
 
             if (!taskSettings.CaptureSettings.FFmpegOptions.IsSourceSelected)
             {
-                MessageBox.Show(Resources.FFmpeg_FFmpeg_video_and_audio_source_both_can_t_be__None__,
-                    "ShareX - " + Resources.FFmpeg_FFmpeg_error, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(Strings.FFmpeg_FFmpeg_video_and_audio_source_both_can_t_be__None__,
+                    "ShareX - " + Strings.FFmpeg_FFmpeg_error, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             if (taskSettings.GeneralSettings.ToastWindowAutoHide)
             {
-                NotificationForm.CloseActiveForm();
+                NotificationWindow.CloseActiveWindow();
             }
 
             Rectangle captureRectangle = Rectangle.Empty;
@@ -129,15 +134,12 @@ namespace ShareX
             switch (startMethod)
             {
                 case ScreenRecordStartMethod.Region:
-                    if (taskSettings.CaptureSettings.ScreenRecordTransparentRegion)
+                    var selection = await RegionCaptureTasks.GetRectangleRegionAsync(
+                        taskSettings.CaptureSettings.RegionCaptureOptions);
+                    if (selection != null)
                     {
-                        RegionCaptureTasks.GetRectangleRegionTransparent(out captureRectangle);
-                    }
-                    else
-                    {
-                        RegionCaptureTasks.GetRectangleRegion(out captureRectangle, out WindowInfo windowInfo, taskSettings.CaptureSettings.SurfaceOptions);
-
-                        metadata.UpdateInfo(windowInfo);
+                        captureRectangle = selection.Value.Rectangle;
+                        metadata.UpdateInfo(selection.Value.WindowInfo);
                     }
                     break;
                 case ScreenRecordStartMethod.ActiveWindow:
@@ -158,7 +160,7 @@ namespace ShareX
                     captureRectangle = taskSettings.CaptureSettings.CaptureCustomRegion;
                     break;
                 case ScreenRecordStartMethod.LastRegion:
-                    captureRectangle = Program.Settings.ScreenRecordRegion;
+                    captureRectangle = ApplicationState.Settings.ScreenRecordRegion;
                     break;
             }
 
@@ -175,7 +177,7 @@ namespace ShareX
                 return;
             }
 
-            Program.Settings.ScreenRecordRegion = captureRectangle;
+            ApplicationState.Settings.ScreenRecordRegion = captureRectangle;
 
             IsRecording = true;
 
@@ -186,17 +188,19 @@ namespace ShareX
 
             float duration = taskSettings.CaptureSettings.ScreenRecordFixedDuration ? taskSettings.CaptureSettings.ScreenRecordDuration : 0;
 
-            recordForm = new ScreenRecordForm(captureRectangle)
+            recordForm = new ScreenRecordWindow(captureRectangle)
             {
                 ActivateWindow = startMethod == ScreenRecordStartMethod.Region,
                 Duration = duration,
-                AskConfirmationOnAbort = taskSettings.CaptureSettings.ScreenRecordAskConfirmationOnAbort
+                AskConfirmationOnAbort = taskSettings.CaptureSettings.ScreenRecordAskConfirmationOnAbort,
+                ShowRecordingTimer = taskSettings.CaptureSettings.ScreenRecordShowTimer,
+                ShowRecordingButtonLabels = taskSettings.CaptureSettings.ScreenRecordShowButtonLabels
             };
 
             recordForm.StopRequested += StopRecording;
             recordForm.Show();
 
-            Task.Run(() =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
@@ -250,6 +254,16 @@ namespace ShareX
                             abortRequested = true;
                         }
 
+                        if (recordForm.ConsumeRestartRequest())
+                        {
+                            screenRecorder?.Dispose();
+                            screenRecorder = null;
+                            FileHelpers.DeleteFile(path);
+                            FileHelpers.DeleteFile(concatPath);
+                            FileHelpers.DeleteFile(tempPath);
+                            pendingMotionData = null;
+                        }
+
                         if (recordForm.Status == ScreenRecordingStatus.Waiting || recordForm.Status == ScreenRecordingStatus.Paused)
                         {
                             if (recordForm.Status == ScreenRecordingStatus.Paused && File.Exists(path))
@@ -261,6 +275,16 @@ namespace ShareX
 
                             captureRectangle = recordForm.RecordingRegion;
 
+                            bool trackMouseMotion = taskSettings.CaptureSettings.ScreenRecordTrackMouseMotion &&
+                                outputType != ScreenRecordOutput.GIF && !taskSettings.CaptureSettings.FFmpegOptions.IsAnimatedImage;
+
+                            // The smooth cursor is drawn in afterwards from the motion track, so the real one has to
+                            // stay out of the picture. Only for mp4, which is what the cursor pass writes back.
+                            bool smoothCursor = trackMouseMotion && taskSettings.CaptureSettings.ScreenRecordShowCursor &&
+                                taskSettings.ToolsSettingsReference.VideoEditorOptions.SmoothCursor &&
+                                string.Equals(taskSettings.CaptureSettings.FFmpegOptions.Extension, "mp4", StringComparison.OrdinalIgnoreCase);
+                            bool drawCursor = taskSettings.CaptureSettings.ScreenRecordShowCursor && !smoothCursor;
+
                             ScreenRecordingOptions options = new ScreenRecordingOptions()
                             {
                                 IsRecording = true,
@@ -270,22 +294,80 @@ namespace ShareX
                                 Duration = duration,
                                 OutputPath = path,
                                 CaptureArea = captureRectangle,
-                                DrawCursor = taskSettings.CaptureSettings.ScreenRecordShowCursor
+                                DrawCursor = drawCursor
                             };
 
                             Screenshot screenshot = TaskHelpers.GetScreenshot(taskSettings);
-                            screenshot.CaptureCursor = taskSettings.CaptureSettings.ScreenRecordShowCursor;
+                            screenshot.CaptureCursor = drawCursor;
 
                             screenRecorder?.Dispose();
                             screenRecorder = new ScreenRecorder(ScreenRecordOutput.FFmpeg, options, screenshot, captureRectangle);
                             screenRecorder.RecordingStarted += ScreenRecorder_RecordingStarted;
                             screenRecorder.EncodingProgressChanged += ScreenRecorder_EncodingProgressChanged;
-                            screenRecorder.StartRecording();
+
+                            // After a pause the new segment is appended to what was recorded so far, so its motion
+                            // track has to start where that video ends.
+                            bool resumed = File.Exists(concatPath);
+                            float motionOffset = 0;
+
+                            if (trackMouseMotion)
+                            {
+                                if (!resumed)
+                                {
+                                    pendingMotionData = null;
+                                }
+                                else if (pendingMotionData != null)
+                                {
+                                    motionOffset = GetVideoDuration(concatPath, taskSettings);
+                                }
+
+                                mouseMotionRecorder?.Dispose();
+                                mouseMotionRecorder = new MouseMotionRecorder(captureRectangle, Math.Max(fps, 60));
+                            }
+
+                            using (IDisposable highlighter = taskSettings.CaptureSettings.ScreenRecordMouseHighlighter
+                                ? await MouseHighlighterManager.BeginRecordingAsync(taskSettings.ToolsSettingsReference.MouseHighlighterOptions)
+                                : null)
+                            {
+                                if (recordForm.Status != ScreenRecordingStatus.Aborted && recordForm.Status != ScreenRecordingStatus.Stopped)
+                                {
+                                    screenRecorder.StartRecording();
+                                }
+                            }
+
+                            if (mouseMotionRecorder != null)
+                            {
+                                mouseMotionRecorder.Stop();
+                                ScreenRecordingMotionData segment = mouseMotionRecorder.GetData();
+                                segment.CursorHidden = smoothCursor;
+
+                                if (!resumed)
+                                {
+                                    pendingMotionData = segment;
+                                }
+                                else if (pendingMotionData != null && motionOffset > 0)
+                                {
+                                    pendingMotionData.Append(segment, motionOffset);
+                                }
+                                else
+                                {
+                                    pendingMotionData = null;
+                                }
+
+                                mouseMotionRecorder.Dispose();
+                                mouseMotionRecorder = null;
+                            }
+
                             recordForm.ChangeState(ScreenRecordState.RecordingEnd);
 
                             if (recordForm.Status == ScreenRecordingStatus.Aborted)
                             {
                                 abortRequested = true;
+                            }
+
+                            if (recordForm.RestartRequested)
+                            {
+                                continue;
                             }
                         }
 
@@ -337,30 +419,206 @@ namespace ShareX
 
                 FileHelpers.DeleteFile(concatPath);
                 FileHelpers.DeleteFile(tempPath);
-            }).ContinueInCurrentContext(() =>
-            {
-                if (!abortRequested && !string.IsNullOrEmpty(path) && File.Exists(path) && TaskHelpers.ShowAfterCaptureForm(taskSettings, out string customFileName, null, path))
-                {
-                    if (!string.IsNullOrEmpty(customFileName))
-                    {
-                        string currentFileName = Path.GetFileNameWithoutExtension(path);
-                        string ext = Path.GetExtension(path);
+            }).ContinueInCurrentContext(() => CompleteRecording(path, metadata, taskSettings, abortRequested));
+        }
 
-                        if (!currentFileName.Equals(customFileName, StringComparison.OrdinalIgnoreCase))
+        private static void CompleteRecording(
+            string path,
+            TaskMetadata metadata,
+            TaskSettings taskSettings,
+            bool aborted,
+            ScreenRecordingQuickTaskAction action = ScreenRecordingQuickTaskAction.Continue,
+            bool skipQuickTaskMenu = false,
+            bool cursorRendered = false)
+        {
+            bool hasRecording = !aborted && !string.IsNullOrEmpty(path) && File.Exists(path);
+
+            if (hasRecording && !skipQuickTaskMenu && taskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowQuickTaskMenu))
+            {
+                ScreenRecordingQuickTaskMenu quickTaskMenu = new ScreenRecordingQuickTaskMenu();
+                quickTaskMenu.ActionSelected += selectedAction =>
+                    CompleteRecording(path, metadata, taskSettings, aborted, selectedAction, true);
+                quickTaskMenu.ShowMenu(path);
+                return;
+            }
+
+            // The editor draws the smooth cursor itself and needs the clean recording; every other route
+            // gets the cursor rendered into the file before it is saved, copied or uploaded.
+            if (hasRecording && !cursorRendered && action != ScreenRecordingQuickTaskAction.EditVideo &&
+                pendingMotionData != null && pendingMotionData.CursorHidden && pendingMotionData.HasSamples)
+            {
+                ScreenRecordingMotionData motionData = pendingMotionData;
+                TaskHelpers.ShowNotificationTip(Strings.ScreenRecordManager_AddingSmoothCursor);
+
+                Task.Run(() => RenderSmoothCursor(path, motionData, taskSettings)).ContinueInCurrentContext(() =>
+                    CompleteRecording(path, metadata, taskSettings, aborted, action, true, true));
+                return;
+            }
+
+            void FinishRecording(AfterCaptureWindowResult result)
+            {
+                try
+                {
+                    if (result.Accepted)
+                    {
+                        string customFileName = result.FileName;
+
+                        if (!string.IsNullOrEmpty(customFileName))
                         {
-                            path = FileHelpers.RenameFile(path, customFileName + ext);
+                            string currentFileName = Path.GetFileNameWithoutExtension(path);
+                            string ext = Path.GetExtension(path);
+
+                            if (!currentFileName.Equals(customFileName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                path = FileHelpers.RenameFile(path, customFileName + ext);
+                            }
+                        }
+
+                        SaveMotionData(path);
+
+                        ApplyCompletionActions(taskSettings);
+                        ApplyQuickTaskAction(taskSettings, action);
+
+                        WorkerTask task = WorkerTask.CreateFileJobTask(path, metadata, taskSettings, customFileName);
+                        TaskManager.Start(task);
+
+                        if (action == ScreenRecordingQuickTaskAction.EditVideo)
+                        {
+                            TaskHelpers.OpenVideoEditor(path, taskSettings);
+                        }
+                        else if (action == ScreenRecordingQuickTaskAction.EditWithCapCut)
+                        {
+                            CapCutIntegration.OpenVideo(path);
                         }
                     }
+                }
+                finally
+                {
+                    IsRecording = false;
+                    pendingMotionData = null;
+                }
+            }
 
-                    ApplyCompletionActions(taskSettings);
+            if (hasRecording)
+            {
+                TaskHelpers.ShowAfterCaptureWindow(taskSettings, FinishRecording, null, path);
+            }
+            else
+            {
+                IsRecording = false;
+                pendingMotionData = null;
+            }
+        }
 
-                    WorkerTask task = WorkerTask.CreateFileJobTask(path, metadata, taskSettings, customFileName);
-                    TaskManager.Start(task);
+        // Re-encodes the recording with the smooth cursor drawn in and swaps it into place. On any failure
+        // the clean recording is left untouched, and its motion track still lets the editor add the cursor.
+        private static void RenderSmoothCursor(string path, ScreenRecordingMotionData motionData, TaskSettings taskSettings)
+        {
+            string ffmpegPath = taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath;
+            string outputPath = FileHelpers.AppendTextToFileName(path, "-cursor");
+            VideoEditorExportRequest request = null;
+
+            try
+            {
+                VideoInfo info;
+
+                using (FFmpegCLIManager probe = new FFmpegCLIManager(ffmpegPath) { ShowError = false })
+                {
+                    info = probe.GetVideoInfo(path);
                 }
 
-                abortRequested = false;
-                IsRecording = false;
-            });
+                if (info == null || info.VideoResolution.IsEmpty)
+                {
+                    return;
+                }
+
+                request = VideoCursorBaker.BuildRequest(path, outputPath, motionData, taskSettings.ToolsSettingsReference.VideoEditorOptions,
+                    info.VideoResolution.Width, info.VideoResolution.Height, info.Duration.TotalSeconds);
+
+                if (request == null)
+                {
+                    return;
+                }
+
+                using (FFmpegCLIManager ffmpeg = new FFmpegCLIManager(ffmpegPath) { ShowError = false })
+                {
+                    if (ffmpeg.Run(request.Arguments) && File.Exists(outputPath) && new FileInfo(outputPath).Length > 0)
+                    {
+                        File.Move(outputPath, path, true);
+                        motionData.CursorHidden = false;
+                    }
+                    else
+                    {
+                        DebugHelper.WriteLine("Smooth cursor render failed: " + ffmpeg.Output);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
+            finally
+            {
+                if (request?.TempFiles != null)
+                {
+                    foreach (string tempFile in request.TempFiles)
+                    {
+                        FileHelpers.DeleteFile(tempFile);
+                    }
+                }
+
+                FileHelpers.DeleteFile(outputPath);
+            }
+        }
+
+        private static float GetVideoDuration(string path, TaskSettings taskSettings)
+        {
+            try
+            {
+                using (FFmpegCLIManager ffmpeg = new FFmpegCLIManager(taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath) { ShowError = false })
+                {
+                    VideoInfo info = ffmpeg.GetVideoInfo(path);
+                    return info != null ? (float)info.Duration.TotalSeconds : 0;
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+                return 0;
+            }
+        }
+
+        private static void SaveMotionData(string path)
+        {
+            if (pendingMotionData != null && pendingMotionData.HasSamples && !string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                try
+                {
+                    pendingMotionData.Save(path);
+                }
+                catch (Exception e)
+                {
+                    DebugHelper.WriteException(e);
+                }
+            }
+        }
+
+        private static void ApplyQuickTaskAction(TaskSettings taskSettings, ScreenRecordingQuickTaskAction action)
+        {
+            if (action is ScreenRecordingQuickTaskAction.EditVideo or ScreenRecordingQuickTaskAction.EditWithCapCut)
+            {
+                taskSettings.AfterCaptureJob = taskSettings.AfterCaptureJob.Remove(AfterCaptureTasks.DeleteFile);
+            }
+            else if (action is ScreenRecordingQuickTaskAction.CopyFilePath or ScreenRecordingQuickTaskAction.CopyFile)
+            {
+                taskSettings.AfterCaptureJob = taskSettings.AfterCaptureJob
+                    .Remove(AfterCaptureTasks.CopyFileToClipboard)
+                    .Remove(AfterCaptureTasks.CopyFilePathToClipboard)
+                    .Remove(AfterCaptureTasks.CopyFolderPathToClipboard)
+                    .Add(action == ScreenRecordingQuickTaskAction.CopyFilePath
+                        ? AfterCaptureTasks.CopyFilePathToClipboard
+                        : AfterCaptureTasks.CopyFileToClipboard);
+            }
         }
 
         private static void ApplyCompletionActions(TaskSettings taskSettings)
@@ -381,6 +639,7 @@ namespace ShareX
 
         private static void ScreenRecorder_RecordingStarted()
         {
+            mouseMotionRecorder?.Start();
             recordForm.ChangeState(ScreenRecordState.AfterRecordingStart);
         }
 

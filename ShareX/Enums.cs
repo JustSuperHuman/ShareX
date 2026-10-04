@@ -1,4 +1,4 @@
-﻿#region License Information (GPL v3)
+#region License Information (GPL v3)
 
 /*
     ShareX - A program that allows you to take screenshots and share any file type
@@ -54,6 +54,10 @@ namespace ShareX
         Automatic, // Localized
         [Description("العربية (Arabic)")]
         Arabic,
+        [Description("Čeština (Czech)")]
+        Czech,
+        [Description("Dansk (Danish)")]
+        Danish,
         [Description("Nederlands (Dutch)")]
         Dutch,
         [Description("English")]
@@ -64,6 +68,8 @@ namespace ShareX
         German,
         [Description("עִברִית (Hebrew)")]
         Hebrew,
+        [Description("हिन्दी (Hindi)")]
+        Hindi,
         [Description("Magyar (Hungarian)")]
         Hungarian,
         [Description("Bahasa Indonesia (Indonesian)")]
@@ -92,6 +98,10 @@ namespace ShareX
         SimplifiedChinese,
         [Description("Español (Spanish)")]
         Spanish,
+        [Description("Svenska (Swedish)")]
+        Swedish,
+        [Description("ไทย (Thai)")]
+        Thai,
         [Description("繁體中文 (Traditional Chinese)")]
         TraditionalChinese,
         [Description("Türkçe (Turkish)")]
@@ -220,10 +230,6 @@ namespace ShareX
         [Category(EnumExtensions.HotkeyType_Category_ScreenCapture)]
         RectangleRegion,
         [Category(EnumExtensions.HotkeyType_Category_ScreenCapture)]
-        RectangleLight,
-        [Category(EnumExtensions.HotkeyType_Category_ScreenCapture)]
-        RectangleTransparent,
-        [Category(EnumExtensions.HotkeyType_Category_ScreenCapture)]
         CustomRegion,
         [Category(EnumExtensions.HotkeyType_Category_ScreenCapture)]
         LastRegion,
@@ -266,6 +272,8 @@ namespace ShareX
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
         Ruler,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        MouseHighlighter,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
         PinToScreen,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
         PinToScreenFromScreen,
@@ -294,9 +302,19 @@ namespace ShareX
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
         ImageSplitter,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        ImageResizer,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        ImageConverter,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        ImageWatermark,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
         ImageThumbnailer,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
         VideoConverter,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        VideoEditor,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        VideoTrimmer,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
         VideoThumbnailer,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
@@ -328,6 +346,8 @@ namespace ShareX
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
         InspectWindow,
         [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        NetworkMonitor,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
         MonitorTest,
         // Other
         [Category(EnumExtensions.HotkeyType_Category_Other)]
@@ -345,7 +365,9 @@ namespace ShareX
         [Category(EnumExtensions.HotkeyType_Category_Other)]
         ToggleTrayMenu,
         [Category(EnumExtensions.HotkeyType_Category_Other)]
-        ExitShareX
+        ExitShareX,
+        [Category(EnumExtensions.HotkeyType_Category_Tools)]
+        AnimatedGifTrimmer
     }
 
     public enum ToastClickAction // Localized
@@ -383,24 +405,9 @@ namespace ShareX
         Cancel
     }
 
-    public enum ImagePreviewVisibility // Localized
-    {
-        Show, Hide, Automatic
-    }
-
-    public enum ImagePreviewLocation // Localized
-    {
-        Side, Bottom
-    }
-
     public enum ThumbnailTitleLocation // Localized
     {
         Top, Bottom
-    }
-
-    public enum RegionCaptureType
-    {
-        Default, Light, Transparent
     }
 
     public enum ScreenTearingTestMode
@@ -428,12 +435,6 @@ namespace ShareX
         EnabledByPolicy = StartupTaskState.EnabledByPolicy
     }
 #endif
-
-    public enum TaskViewMode // Localized
-    {
-        ListView,
-        ThumbnailView
-    }
 
     public enum NativeMessagingAction
     {

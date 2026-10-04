@@ -23,9 +23,9 @@
 
 #endregion License Information (GPL v3)
 
+using ShareX.AvaloniaUI.Theming;
 using ShareX.ImageEditor.Core.ImageEffects.Helpers;
 using ShareX.ImageEditor.Core.ImageEffects.Parameters;
-using ShareX.AvaloniaUI.Theming;
 using SkiaSharp;
 
 namespace ShareX.ImageEditor.Core.ImageEffects.Filters;
@@ -102,7 +102,7 @@ public sealed class MatrixDigitalRainImageEffect : ImageEffectBase
             canvas.DrawBitmap(source, 0, 0, srcBlendPaint);
         }
 
-        SKTypeface? customTypeface = SKTypeface.FromFamilyName("Consolas");
+        using SKTypeface? customTypeface = SKTypeface.FromFamilyName("Consolas");
         using SKFont glyphFont = new SKFont(customTypeface ?? SKTypeface.Default, cell * 1.02f);
         using SKPaint glyphPaint = new SKPaint
         {
@@ -181,7 +181,6 @@ public sealed class MatrixDigitalRainImageEffect : ImageEffectBase
             }
         }
 
-        customTypeface?.Dispose();
         return result;
     }
 

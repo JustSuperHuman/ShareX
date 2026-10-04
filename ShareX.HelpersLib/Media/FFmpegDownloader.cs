@@ -24,13 +24,14 @@
 #endregion License Information (GPL v3)
 
 using System;
-using System.Windows.Forms;
+using System.Threading.Tasks;
+using DialogResult = ShareX.AvaloniaUI.DialogResult;
 
 namespace ShareX.HelpersLib
 {
     public static class FFmpegDownloader
     {
-        public static DialogResult DownloadFFmpeg(bool async, DownloaderForm.DownloaderInstallEventHandler installRequested)
+        public static async Task<DialogResult> DownloadFFmpeg(bool async, DownloaderWindow.DownloaderInstallEventHandler installRequested)
         {
             string url;
 
@@ -43,13 +44,13 @@ namespace ShareX.HelpersLib
                 url = "https://ffmpeg.zeranoe.com/builds/win32/static/ffmpeg-latest-win32-static.zip";
             }
 
-            using (DownloaderForm form = new DownloaderForm(url, "ffmpeg.zip"))
+            DownloaderWindowResult result = await DownloaderWindow.ShowAsync(url, "ffmpeg.zip", window =>
             {
-                form.InstallType = InstallType.Event;
-                form.RunInstallerInBackground = async;
-                form.InstallRequested += installRequested;
-                return form.ShowDialog();
-            }
+                window.InstallType = InstallType.Event;
+                window.RunInstallerInBackground = async;
+                window.InstallRequested += installRequested;
+            });
+            return result.DialogResult;
         }
 
         public static bool ExtractFFmpeg(string archivePath, string extractPath)
