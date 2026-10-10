@@ -73,7 +73,8 @@ public sealed record VideoClickHighlight(double Time, double X, double Y);
 // writer so sprites can be produced on any thread without touching the UI platform.
 public static class VideoEffectSprites
 {
-    public static string WriteRipplePng(int canvasSize, double radiusFraction, double ringWidthFraction, double alpha, byte r, byte g, byte b)
+    public static string WriteRipplePng(int canvasSize, double radiusFraction, double ringWidthFraction, double alpha,
+        byte r, byte g, byte b, bool phoneTap = false, bool tapDot = false, double tapImpact = 0, double tapBrightness = 1)
     {
         int size = Math.Max(8, canvasSize);
         byte[] pixels = new byte[size * size * 4];
@@ -88,9 +89,18 @@ public static class VideoEffectSprites
                 double distance = Math.Sqrt((x - center) * (x - center) + (y - center) * (y - center));
                 double d = distance - radius;
                 double ring = Math.Exp(-(d * d) / (2 * sigma * sigma));
-                // A faint fill inside the ring keeps the pulse readable on busy backgrounds.
-                double fill = distance < radius ? 0.25 : 0;
-                double a = Math.Clamp(alpha * Math.Max(ring, fill), 0, 1);
+                double fill = distance < radius ? (phoneTap ? 0.03 : 0.25) : 0;
+                double dot = tapDot && distance < size * 0.075 ? 0.9 : 0;
+                double pulse = Math.Max(Math.Max(ring, fill), dot);
+                if (phoneTap)
+                {
+                    double glow = Math.Exp(-(d * d) / (5.78 * sigma * sigma)) * (0.06 + tapImpact * 0.12);
+                    double echoDistance = distance - radius * 0.62;
+                    double echo = Math.Exp(-(echoDistance * echoDistance) / (2 * sigma * sigma)) * tapImpact * 0.50;
+                    pulse = Math.Max(Math.Max(ring + glow, echo), Math.Max(fill, dot));
+                }
+
+                double a = Math.Clamp(alpha * pulse * (phoneTap ? tapBrightness : 1), 0, 1);
 
                 SetPixel(pixels, size, x, y, r, g, b, (byte)(a * 255));
             }
@@ -293,6 +303,17 @@ public static class VideoEffectSprites
 
 // Builds the ffmpeg filter statements for each effect. Effects that live in source coordinates
 // (ripples) run before auto-zoom and speed so they travel with the content.
+public static class PhoneTapVisuals
+{
+    public const int PhaseCount = 4;
+
+    public static double Duration(double impact) => 0.42 + 0.38 * Math.Clamp(impact, 0, 1);
+    public static double Radius(double progress, double impact) =>
+        0.20 + (0.24 + 0.02 * Math.Clamp(impact, 0, 1)) * Math.Clamp(progress, 0, 1);
+    public static double Alpha(double progress) => 0.85 - 0.60 * Math.Clamp(progress, 0, 1);
+    public static double RingWidth(double impact) => 0.025 + 0.005 * Math.Clamp(impact, 0, 1);
+}
+
 public static class VideoEffectsGraph
 {
     public const int MaxRippleClicks = 60;
@@ -335,7 +356,11 @@ public static class VideoEffectsGraph
         IReadOnlyList<VideoClickHighlight> clicks,
         int sourceWidth,
         int sourceHeight,
-        Rect crop)
+        Rect crop,
+        bool phoneTap = false,
+        double tapSize = 1.5,
+        double tapBrightness = 1.3,
+        double tapImpact = 0.4)
     {
         // Resolve to cropped-frame pixels and drop clicks the crop cuts away.
         List<VideoClickHighlight> limited = [];
@@ -345,17 +370,26 @@ public static class VideoEffectsGraph
             double y = click.Y * sourceHeight - crop.Y;
             if (x < 0 || y < 0 || x > crop.Width || y > crop.Height) continue;
             limited.Add(click with { X = x, Y = y });
-            if (limited.Count >= MaxRippleClicks) break;
+            if (!phoneTap && limited.Count >= MaxRippleClicks) break;
         }
         if (limited.Count == 0) return inputLabel;
 
         int canvas = GetRippleCanvasSize(crop);
+        if (phoneTap) canvas = Math.Max(14, (int)Math.Round(canvas * Math.Clamp(tapSize, 0.5, 3) / 2) * 2);
 
         string current = inputLabel;
-        for (int phase = 0; phase < RipplePhases.Length; phase++)
+        int phaseCount = phoneTap ? PhoneTapVisuals.PhaseCount : RipplePhases.Length;
+        double phaseSeconds = phoneTap ? PhoneTapVisuals.Duration(tapImpact) / phaseCount : RipplePhaseSeconds;
+        for (int phase = 0; phase < phaseCount; phase++)
         {
-            (double radius, double alpha) = RipplePhases[phase];
-            string sprite = VideoEffectSprites.WriteRipplePng(canvas, radius, 0.055, alpha, 255, 202, 87);
+            double progress = phase / (double)(phaseCount - 1);
+            (double radius, double alpha) = phoneTap
+                ? (PhoneTapVisuals.Radius(progress, tapImpact), PhoneTapVisuals.Alpha(progress))
+                : RipplePhases[phase];
+            string sprite = VideoEffectSprites.WriteRipplePng(canvas, radius,
+                phoneTap ? PhoneTapVisuals.RingWidth(tapImpact) : 0.055, alpha,
+                255, phoneTap ? (byte)255 : (byte)202, phoneTap ? (byte)255 : (byte)87,
+                phoneTap, phoneTap && phase == 0, tapImpact, tapBrightness);
             int inputIndex = graph.AddImageInput(sprite);
 
             string spriteLabel = $"[{inputIndex}:v]";
@@ -370,8 +404,8 @@ public static class VideoEffectsGraph
             {
                 VideoClickHighlight click = limited[c];
                 string overlaySource = limited.Count > 1 ? $"[rip{phase}_{c}]" : spriteLabel;
-                double t0 = click.Time + phase * RipplePhaseSeconds;
-                double t1 = t0 + RipplePhaseSeconds;
+                double t0 = click.Time + phase * phaseSeconds;
+                double t1 = t0 + phaseSeconds;
                 int x = (int)Math.Round(click.X - canvas / 2.0);
                 int y = (int)Math.Round(click.Y - canvas / 2.0);
                 string next = graph.NewLabel();

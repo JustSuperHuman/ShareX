@@ -49,6 +49,18 @@ public sealed class VideoCropControl : Control
     public static readonly StyledProperty<bool> ShowClickRipplesProperty =
         AvaloniaProperty.Register<VideoCropControl, bool>(nameof(ShowClickRipples));
 
+    public static readonly StyledProperty<bool> PhoneTapModeProperty =
+        AvaloniaProperty.Register<VideoCropControl, bool>(nameof(PhoneTapMode));
+
+    public static readonly StyledProperty<double> PhoneTapSizeProperty =
+        AvaloniaProperty.Register<VideoCropControl, double>(nameof(PhoneTapSize), 1.5);
+
+    public static readonly StyledProperty<double> PhoneTapBrightnessProperty =
+        AvaloniaProperty.Register<VideoCropControl, double>(nameof(PhoneTapBrightness), 1.3);
+
+    public static readonly StyledProperty<double> PhoneTapImpactProperty =
+        AvaloniaProperty.Register<VideoCropControl, double>(nameof(PhoneTapImpact), 0.4);
+
     public static readonly StyledProperty<bool> ShowSpotlightProperty =
         AvaloniaProperty.Register<VideoCropControl, bool>(nameof(ShowSpotlight));
 
@@ -93,7 +105,8 @@ public sealed class VideoCropControl : Control
     static VideoCropControl()
     {
         AffectsRender<VideoCropControl>(PreviewImageProperty, SourceWidthProperty, SourceHeightProperty, CropRectProperty, CameraRectProperty,
-            PreviewTimeProperty, ClickHighlightsProperty, ShowClickRipplesProperty,
+            PreviewTimeProperty, ClickHighlightsProperty, ShowClickRipplesProperty, PhoneTapModeProperty,
+            PhoneTapSizeProperty, PhoneTapBrightnessProperty, PhoneTapImpactProperty,
             ShowSpotlightProperty, SpotlightCenterProperty, SpotlightSizeProperty,
             ShowProgressBarProperty, ProgressFractionProperty,
             ShowStudioBackgroundProperty, StudioTopColorProperty, StudioBottomColorProperty,
@@ -114,6 +127,10 @@ public sealed class VideoCropControl : Control
     public double PreviewTime { get => GetValue(PreviewTimeProperty); set => SetValue(PreviewTimeProperty, value); }
     public IReadOnlyList<VideoClickHighlight>? ClickHighlights { get => GetValue(ClickHighlightsProperty); set => SetValue(ClickHighlightsProperty, value); }
     public bool ShowClickRipples { get => GetValue(ShowClickRipplesProperty); set => SetValue(ShowClickRipplesProperty, value); }
+    public bool PhoneTapMode { get => GetValue(PhoneTapModeProperty); set => SetValue(PhoneTapModeProperty, value); }
+    public double PhoneTapSize { get => GetValue(PhoneTapSizeProperty); set => SetValue(PhoneTapSizeProperty, value); }
+    public double PhoneTapBrightness { get => GetValue(PhoneTapBrightnessProperty); set => SetValue(PhoneTapBrightnessProperty, value); }
+    public double PhoneTapImpact { get => GetValue(PhoneTapImpactProperty); set => SetValue(PhoneTapImpactProperty, value); }
     public bool ShowSpotlight { get => GetValue(ShowSpotlightProperty); set => SetValue(ShowSpotlightProperty, value); }
     public Point SpotlightCenter { get => GetValue(SpotlightCenterProperty); set => SetValue(SpotlightCenterProperty, value); }
     public double SpotlightSize { get => GetValue(SpotlightSizeProperty); set => SetValue(SpotlightSizeProperty, value); }
@@ -423,10 +440,12 @@ public sealed class VideoCropControl : Control
     {
         if (!ShowClickRipples || ClickHighlights is not { Count: > 0 } clicks || sourceWindow.Width <= 0) return;
 
-        const double rippleSeconds = 0.42;
+        double impact = PhoneTapMode ? Math.Clamp(PhoneTapImpact, 0, 1) : 0;
+        double rippleSeconds = PhoneTapMode ? PhoneTapVisuals.Duration(impact) : 0.42;
         double time = PreviewTime;
         double scale = displayRect.Width / sourceWindow.Width;
-        double canvas = Math.Max(28, Math.Min(SourceWidth, SourceHeight) * 0.13);
+        double canvas = VideoEffectsGraph.GetRippleCanvasSize(NormalizeCrop(CropRect)) *
+            (PhoneTapMode ? Math.Clamp(PhoneTapSize, 0.5, 3) : 1);
 
         using DrawingContext.PushedState clip = context.PushClip(displayRect);
         foreach (VideoClickHighlight click in clicks)
@@ -441,11 +460,39 @@ public sealed class VideoCropControl : Control
                 displayRect.X + (sourceX - sourceWindow.X) * scale,
                 displayRect.Y + (sourceY - sourceWindow.Y) * (displayRect.Height / sourceWindow.Height));
 
-            double radius = (0.18 + 0.30 * progress) * canvas * scale;
-            byte alpha = (byte)(Math.Clamp(1 - progress, 0, 1) * 200);
-            Pen ring = new(new SolidColorBrush(Color.FromArgb(alpha, 255, 202, 87)), Math.Max(1.5, 2.5 * scale));
-            IBrush fill = new SolidColorBrush(Color.FromArgb((byte)(alpha / 4), 255, 202, 87));
+            double radius = (PhoneTapMode
+                ? PhoneTapVisuals.Radius(progress, impact)
+                : 0.18 + 0.30 * progress) * canvas * scale;
+            byte alpha = (byte)(Math.Clamp(PhoneTapMode
+                ? PhoneTapVisuals.Alpha(progress) * Math.Clamp(PhoneTapBrightness, 0.5, 2)
+                : (1 - progress) * 200 / 255, 0, 1) * 255);
+            byte green = PhoneTapMode ? (byte)255 : (byte)202;
+            byte blue = PhoneTapMode ? (byte)255 : (byte)87;
+            double ringWidth = PhoneTapMode
+                ? Math.Max(1.5, PhoneTapVisuals.RingWidth(impact) * canvas * scale)
+                : Math.Max(1.5, 2.5 * scale);
+            if (PhoneTapMode)
+            {
+                byte glowAlpha = (byte)(alpha * (0.06 + 0.12 * impact));
+                context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(glowAlpha, 255, 255, 255)), ringWidth * 3.5),
+                    center, radius, radius);
+                if (impact > 0)
+                {
+                    byte echoAlpha = (byte)(alpha * impact * 0.50);
+                    context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(echoAlpha, 255, 255, 255)), ringWidth),
+                        center, radius * 0.62, radius * 0.62);
+                }
+            }
+            Pen ring = new(new SolidColorBrush(Color.FromArgb(alpha, 255, green, blue)), ringWidth);
+            IBrush fill = new SolidColorBrush(Color.FromArgb((byte)(alpha * (PhoneTapMode ? 0.05 : 0.25)), 255, green, blue));
             context.DrawEllipse(fill, ring, center, radius, radius);
+            if (PhoneTapMode)
+            {
+                byte dotAlpha = (byte)Math.Clamp(Math.Clamp(1 - age / (0.18 + 0.12 * impact), 0, 1) *
+                    Math.Clamp(PhoneTapBrightness, 0.5, 2) * 220, 0, 255);
+                context.DrawEllipse(new SolidColorBrush(Color.FromArgb(dotAlpha, 255, 255, 255)), null,
+                    center, Math.Max(2, canvas * scale * 0.075), Math.Max(2, canvas * scale * 0.075));
+            }
         }
     }
 

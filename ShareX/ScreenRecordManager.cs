@@ -61,6 +61,14 @@ namespace ShareX
             }
         }
 
+        public static async void StartDeviceFrameRecording(TaskSettings taskSettings, Rectangle region)
+        {
+            if (!IsRecording)
+            {
+                await StartRecording(ScreenRecordOutput.FFmpeg, taskSettings, ScreenRecordStartMethod.Region, region);
+            }
+        }
+
         public static void StopRecording()
         {
             if (IsRecording && screenRecorder != null)
@@ -85,7 +93,8 @@ namespace ShareX
             }
         }
 
-        private static async Task StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings, ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region)
+        private static async Task StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings,
+            ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region, Rectangle? deviceFrameRegion = null)
         {
             if (outputType == ScreenRecordOutput.GIF)
             {
@@ -131,7 +140,11 @@ namespace ShareX
             Rectangle captureRectangle = Rectangle.Empty;
             TaskMetadata metadata = new TaskMetadata();
 
-            switch (startMethod)
+            if (deviceFrameRegion.HasValue)
+            {
+                captureRectangle = deviceFrameRegion.Value;
+            }
+            else switch (startMethod)
             {
                 case ScreenRecordStartMethod.Region:
                     var selection = await RegionCaptureTasks.GetRectangleRegionAsync(
@@ -169,6 +182,28 @@ namespace ShareX
 
             if (taskSettings.CaptureSettings.FFmpegOptions.IsEvenSizeRequired)
             {
+                if (deviceFrameRegion.HasValue)
+                {
+                    // Keep the requested padding when the encoder needs even dimensions.
+                    if (captureRectangle.Width % 2 != 0)
+                    {
+                        if (captureRectangle.Right < screenRectangle.Right) captureRectangle.Width++;
+                        else if (captureRectangle.Left > screenRectangle.Left)
+                        {
+                            captureRectangle.X--;
+                            captureRectangle.Width++;
+                        }
+                    }
+                    if (captureRectangle.Height % 2 != 0)
+                    {
+                        if (captureRectangle.Bottom < screenRectangle.Bottom) captureRectangle.Height++;
+                        else if (captureRectangle.Top > screenRectangle.Top)
+                        {
+                            captureRectangle.Y--;
+                            captureRectangle.Height++;
+                        }
+                    }
+                }
                 captureRectangle = CaptureHelpers.EvenRectangleSize(captureRectangle);
             }
 
@@ -275,7 +310,7 @@ namespace ShareX
 
                             captureRectangle = recordForm.RecordingRegion;
 
-                            bool trackMouseMotion = taskSettings.CaptureSettings.ScreenRecordTrackMouseMotion &&
+                            bool trackMouseMotion = (deviceFrameRegion.HasValue || taskSettings.CaptureSettings.ScreenRecordTrackMouseMotion) &&
                                 outputType != ScreenRecordOutput.GIF && !taskSettings.CaptureSettings.FFmpegOptions.IsAnimatedImage;
 
                             // The smooth cursor is drawn in afterwards from the motion track, so the real one has to
@@ -283,7 +318,7 @@ namespace ShareX
                             bool smoothCursor = trackMouseMotion && taskSettings.CaptureSettings.ScreenRecordShowCursor &&
                                 taskSettings.ToolsSettingsReference.VideoEditorOptions.SmoothCursor &&
                                 string.Equals(taskSettings.CaptureSettings.FFmpegOptions.Extension, "mp4", StringComparison.OrdinalIgnoreCase);
-                            bool drawCursor = taskSettings.CaptureSettings.ScreenRecordShowCursor && !smoothCursor;
+                            bool drawCursor = !deviceFrameRegion.HasValue && taskSettings.CaptureSettings.ScreenRecordShowCursor && !smoothCursor;
 
                             ScreenRecordingOptions options = new ScreenRecordingOptions()
                             {
@@ -339,7 +374,8 @@ namespace ShareX
                             {
                                 mouseMotionRecorder.Stop();
                                 ScreenRecordingMotionData segment = mouseMotionRecorder.GetData();
-                                segment.CursorHidden = smoothCursor;
+                                segment.CursorHidden = smoothCursor || deviceFrameRegion.HasValue;
+                                segment.PhoneTapMode = deviceFrameRegion.HasValue;
 
                                 if (!resumed)
                                 {
@@ -429,15 +465,16 @@ namespace ShareX
             bool aborted,
             ScreenRecordingQuickTaskAction action = ScreenRecordingQuickTaskAction.Continue,
             bool skipQuickTaskMenu = false,
-            bool cursorRendered = false)
+            bool cursorRendered = false,
+            QuickTaskInfo selectedPreset = null)
         {
             bool hasRecording = !aborted && !string.IsNullOrEmpty(path) && File.Exists(path);
 
             if (hasRecording && !skipQuickTaskMenu && taskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowQuickTaskMenu))
             {
                 ScreenRecordingQuickTaskMenu quickTaskMenu = new ScreenRecordingQuickTaskMenu();
-                quickTaskMenu.ActionSelected += selectedAction =>
-                    CompleteRecording(path, metadata, taskSettings, aborted, selectedAction, true);
+                quickTaskMenu.ActionSelected += (selectedAction, preset) =>
+                    CompleteRecording(path, metadata, taskSettings, aborted, selectedAction, true, false, preset);
                 quickTaskMenu.ShowMenu(path);
                 return;
             }
@@ -445,13 +482,13 @@ namespace ShareX
             // The editor draws the smooth cursor itself and needs the clean recording; every other route
             // gets the cursor rendered into the file before it is saved, copied or uploaded.
             if (hasRecording && !cursorRendered && action != ScreenRecordingQuickTaskAction.EditVideo &&
-                pendingMotionData != null && pendingMotionData.CursorHidden && pendingMotionData.HasSamples)
+                pendingMotionData != null && pendingMotionData.CursorHidden && !pendingMotionData.PhoneTapMode && pendingMotionData.HasSamples)
             {
                 ScreenRecordingMotionData motionData = pendingMotionData;
                 TaskHelpers.ShowNotificationTip(Strings.ScreenRecordManager_AddingSmoothCursor);
 
                 Task.Run(() => RenderSmoothCursor(path, motionData, taskSettings)).ContinueInCurrentContext(() =>
-                    CompleteRecording(path, metadata, taskSettings, aborted, action, true, true));
+                    CompleteRecording(path, metadata, taskSettings, aborted, action, true, true, selectedPreset));
                 return;
             }
 
@@ -477,7 +514,15 @@ namespace ShareX
                         SaveMotionData(path);
 
                         ApplyCompletionActions(taskSettings);
-                        ApplyQuickTaskAction(taskSettings, action);
+                        if (selectedPreset != null)
+                        {
+                            taskSettings.AfterCaptureJob = selectedPreset.AfterCaptureTasks;
+                            taskSettings.AfterUploadJob = selectedPreset.AfterUploadTasks;
+                        }
+                        else
+                        {
+                            ApplyQuickTaskAction(taskSettings, action);
+                        }
 
                         WorkerTask task = WorkerTask.CreateFileJobTask(path, metadata, taskSettings, customFileName);
                         TaskManager.Start(task);

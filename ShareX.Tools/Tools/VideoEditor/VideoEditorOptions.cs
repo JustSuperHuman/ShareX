@@ -21,6 +21,10 @@ public sealed class VideoEditorOptions
     public double AutoZoomSmoothness { get; set; } = 0.5;
     public double IdleThresholdSeconds { get; set; } = 2;
     public bool EffectClickRipples { get; set; }
+    public bool PhoneTapMode { get; set; }
+    public double PhoneTapSize { get; set; } = 1.5;
+    public double PhoneTapBrightness { get; set; } = 1.3;
+    public double PhoneTapImpact { get; set; } = 0.4;
     public bool EffectSpotlight { get; set; }
     public double SpotlightSize { get; set; } = 0.22;
     public bool EffectStudioBackground { get; set; }

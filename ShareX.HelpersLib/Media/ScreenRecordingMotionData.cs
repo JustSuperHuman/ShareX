@@ -82,6 +82,8 @@ namespace ShareX.HelpersLib
         public float Duration { get; set; }
         // True when the video was captured without the system cursor, so a replacement can be drawn.
         public bool CursorHidden { get; set; }
+        // A cursor-free recording intended for tap effects in the video editor.
+        public bool PhoneTapMode { get; set; }
         public List<ScreenRecordingMotionSample> Samples { get; set; } = new List<ScreenRecordingMotionSample>();
         public List<ScreenRecordingMotionClick> Clicks { get; set; } = new List<ScreenRecordingMotionClick>();
 

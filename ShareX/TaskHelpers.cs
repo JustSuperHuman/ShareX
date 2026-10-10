@@ -823,6 +823,22 @@ namespace ShareX
             ScreenRecordManager.StartStopRecording(outputType, startMethod, taskSettings);
         }
 
+        public static void StartDeviceFrameRecording(Rectangle region)
+        {
+            if (ScreenRecordManager.IsRecording) return;
+
+            TaskSettings settings = TaskSettings.GetDefaultTaskSettings();
+            settings.CaptureSettings.FFmpegOptions.VideoSource = FFmpegCaptureDevice.DDAGrab.Value;
+            settings.CaptureSettings.FFmpegOptions.VideoCodec = FFmpegVideoCodec.libx264;
+            settings.CaptureSettings.ScreenRecordShowCursor = false;
+            settings.CaptureSettings.ScreenRecordTrackMouseMotion = true;
+            settings.CaptureSettings.ScreenRecordMouseHighlighter = false;
+            settings.CaptureSettings.ScreenRecordAutoStart = true;
+            settings.CaptureSettings.ScreenRecordStartDelay = 0;
+
+            ScreenRecordManager.StartDeviceFrameRecording(settings, region);
+        }
+
         public static void StopScreenRecording()
         {
             ScreenRecordManager.StopRecording();

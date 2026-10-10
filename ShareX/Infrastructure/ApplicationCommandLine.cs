@@ -26,6 +26,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ShareX;
@@ -69,6 +70,8 @@ internal static class ApplicationCommandLine
     internal static async Task ExecuteReceivedAsync(string[]? args)
     {
         args ??= [];
+        bool backgroundRecordingCommand = args.Any(arg => arg.Equals("-DeviceFrameRecord", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("-DeviceFrameStop", StringComparison.OrdinalIgnoreCase));
 
         if (args.Length == 0)
         {
@@ -81,7 +84,7 @@ internal static class ApplicationCommandLine
 
             MainWindowIntegration.Activate();
         }
-        else if (MainWindowIntegration.IsVisible)
+        else if (!backgroundRecordingCommand && MainWindowIntegration.IsVisible)
         {
             MainWindowIntegration.Activate();
         }

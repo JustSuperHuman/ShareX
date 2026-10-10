@@ -28,6 +28,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Drawing;
+using System.Globalization;
 using System.Threading.Tasks;
 
 namespace ShareX
@@ -55,7 +57,7 @@ namespace ShareX
 
                     if (command.IsCommand)
                     {
-                        if (CheckCustomUploader(command) || CheckImageEffect(command) || await CheckCLIHotkey(command) || await CheckCLIWorkflow(command) ||
+                        if (CheckDeviceFrameRecording(command) || CheckCustomUploader(command) || CheckImageEffect(command) || await CheckCLIHotkey(command) || await CheckCLIWorkflow(command) ||
                             await CheckNativeMessagingInput(command))
                         {
                         }
@@ -73,6 +75,34 @@ namespace ShareX
                     }
                 }
             }
+        }
+
+        // MuMu Device Frames passes a fixed desktop rectangle as one CLI parameter. The "rect=" prefix
+        // keeps negative monitor coordinates from being parsed as another command.
+        private static bool CheckDeviceFrameRecording(CLICommand command)
+        {
+            if (command.CheckCommand("DeviceFrameStop"))
+            {
+                TaskHelpers.StopScreenRecording();
+                return true;
+            }
+
+            if (!command.CheckCommand("DeviceFrameRecord")) return false;
+
+            string parameter = command.Parameter ?? "";
+            if (!parameter.StartsWith("rect=", StringComparison.OrdinalIgnoreCase)) return true;
+            string[] parts = parameter.Substring(5).Split(',');
+            if (parts.Length != 4 || !parts.All(part => int.TryParse(part, NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out _))) return true;
+
+            int[] values = parts.Select(part => int.Parse(part, CultureInfo.InvariantCulture)).ToArray();
+            long right = (long)values[0] + values[2];
+            long bottom = (long)values[1] + values[3];
+            if (values[2] < 32 || values[3] < 32 || values[2] > 16384 || values[3] > 16384 ||
+                right > int.MaxValue || bottom > int.MaxValue) return true;
+
+            TaskHelpers.StartDeviceFrameRecording(new Rectangle(values[0], values[1], values[2], values[3]));
+            return true;
         }
 
         private TaskSettings FindCLITask(List<CLICommand> commands)

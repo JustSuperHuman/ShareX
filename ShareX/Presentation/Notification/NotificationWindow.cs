@@ -98,7 +98,7 @@ public partial class NotificationWindow : Window
             return;
         }
 
-        if (config.Image == null)
+        if (config.Image == null && FileHelpers.IsImageFile(config.FilePath))
         {
             config.Image = SkiaImageHelpers.LoadImage(config.FilePath);
         }
@@ -179,7 +179,7 @@ public partial class NotificationWindow : Window
     {
         DrawingBitmap? source = config.Image;
 
-        if (source == null && !string.IsNullOrEmpty(config.FilePath))
+        if (source == null && FileHelpers.IsImageFile(config.FilePath))
         {
             source = SkiaImageHelpers.LoadImage(config.FilePath);
             config.Image = source;

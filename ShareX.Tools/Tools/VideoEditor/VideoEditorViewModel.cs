@@ -260,6 +260,18 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     private bool _effectClickRipples;
 
     [ObservableProperty]
+    private bool _phoneTapMode;
+
+    [ObservableProperty]
+    private double _phoneTapSize = 1.5;
+
+    [ObservableProperty]
+    private double _phoneTapBrightness = 1.3;
+
+    [ObservableProperty]
+    private double _phoneTapImpact = 0.4;
+
+    [ObservableProperty]
     private bool _effectSpotlight;
 
     [ObservableProperty]
@@ -282,6 +294,8 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
 
     // True when the loaded recording was captured without the system cursor, so one can be drawn in.
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PhoneTapAvailable))]
+    [NotifyPropertyChangedFor(nameof(PhoneTapActive))]
     private bool _cursorReplaceable;
 
     [ObservableProperty]
@@ -324,6 +338,10 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         _autoZoomSmoothness = options.AutoZoomSmoothness;
         _idleThresholdSeconds = Math.Clamp(options.IdleThresholdSeconds, 0.5, 10);
         _effectClickRipples = options.EffectClickRipples;
+        _phoneTapMode = options.PhoneTapMode;
+        _phoneTapSize = Math.Clamp(options.PhoneTapSize, 0.5, 3);
+        _phoneTapBrightness = Math.Clamp(options.PhoneTapBrightness, 0.5, 2);
+        _phoneTapImpact = Math.Clamp(options.PhoneTapImpact, 0, 1);
         _effectSpotlight = options.EffectSpotlight;
         _spotlightSize = Math.Clamp(options.SpotlightSize, 0.1, 0.4);
         _effectStudioBackground = options.EffectStudioBackground;
@@ -350,7 +368,9 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     public bool HasNoPreview => PreviewImage == null;
     public bool AutoZoomAvailable => HasMotionData;
     public bool SpotlightPreviewActive => EffectSpotlight && HasMotionData;
-    public bool RipplePreviewActive => EffectClickRipples && HasMotionData;
+    public bool PhoneTapAvailable => CursorReplaceable;
+    public bool PhoneTapActive => PhoneTapMode && CursorReplaceable;
+    public bool RipplePreviewActive => (EffectClickRipples || PhoneTapActive) && HasMotionData;
     public Avalonia.Media.Color StudioTopColor => Avalonia.Media.Color.FromRgb(SelectedStudioStyle.Top.R, SelectedStudioStyle.Top.G, SelectedStudioStyle.Top.B);
     public Avalonia.Media.Color StudioBottomColor => Avalonia.Media.Color.FromRgb(SelectedStudioStyle.Bottom.R, SelectedStudioStyle.Bottom.G, SelectedStudioStyle.Bottom.B);
     public bool HasCursorNotice => CursorNoticeText.Length > 0;
@@ -539,6 +559,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
             ? [.. _motionData.Clicks.Select(c => new VideoClickHighlight(c.T, c.X, c.Y))]
             : [];
         CursorReplaceable = HasMotionData && _motionData!.CursorHidden;
+        PhoneTapMode = CursorReplaceable && (_motionData!.PhoneTapMode || _options.PhoneTapMode);
         RebuildCursorPath();
         RefreshCursorSprite();
         RebuildAutoZoomPlan();
@@ -555,7 +576,7 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
     {
         Bitmap? previous = CursorImage;
 
-        if (SmoothCursorEnabled && CursorReplaceable && SourceWidth > 0 && SourceHeight > 0)
+        if (SmoothCursorEnabled && CursorReplaceable && !PhoneTapActive && SourceWidth > 0 && SourceHeight > 0)
         {
             _cursorSprite = VideoCursorArt.Render(SelectedCursorStyle.Id, VideoCursorArt.GetSpriteSize(SourceWidth, SourceHeight, CursorSize));
             CursorHotspot = new Point(_cursorSprite.HotspotX, _cursorSprite.HotspotY);
@@ -1099,6 +1120,20 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(RipplePreviewActive));
     }
 
+    partial void OnPhoneTapModeChanged(bool value)
+    {
+        _options.PhoneTapMode = value;
+        OnPropertyChanged(nameof(PhoneTapActive));
+        OnPropertyChanged(nameof(RipplePreviewActive));
+        RefreshCursorSprite();
+    }
+
+    partial void OnPhoneTapSizeChanged(double value) => _options.PhoneTapSize = value;
+
+    partial void OnPhoneTapBrightnessChanged(double value) => _options.PhoneTapBrightness = value;
+
+    partial void OnPhoneTapImpactChanged(double value) => _options.PhoneTapImpact = value;
+
     partial void OnEffectSpotlightChanged(bool value)
     {
         _options.EffectSpotlight = value;
@@ -1345,10 +1380,11 @@ public sealed partial class VideoEditorViewModel : ViewModelBase, IDisposable
         }
 
         // Ripples draw after the spotlight so click pulses stay bright inside the dimmed area.
-        if (EffectClickRipples && _motionData?.Clicks is { Count: > 0 })
+        if ((EffectClickRipples || PhoneTapActive) && _motionData?.Clicks is { Count: > 0 })
         {
             List<VideoClickHighlight> clicks = VideoEffectsGraph.ResolveClicks(_motionData.Clicks, InPoint, length);
-            current = VideoEffectsGraph.AddClickRipples(graph, current, clicks, SourceWidth, SourceHeight, crop);
+            current = VideoEffectsGraph.AddClickRipples(graph, current, clicks, SourceWidth, SourceHeight, crop,
+                PhoneTapActive, PhoneTapSize, PhoneTapBrightness, PhoneTapImpact);
         }
 
         // The cursor goes on top of the other source-space effects and is magnified by auto-zoom along

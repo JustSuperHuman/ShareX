@@ -89,6 +89,10 @@
                                                                PreviewTime="{Binding PreviewPosition}"
                                                                ClickHighlights="{Binding ClickHighlights}"
                                                                ShowClickRipples="{Binding RipplePreviewActive}"
+                                                               PhoneTapMode="{Binding PhoneTapActive}"
+                                                               PhoneTapSize="{Binding PhoneTapSize}"
+                                                               PhoneTapBrightness="{Binding PhoneTapBrightness}"
+                                                               PhoneTapImpact="{Binding PhoneTapImpact}"
                                                                ShowSpotlight="{Binding SpotlightPreviewActive}"
                                                                SpotlightCenter="{Binding SpotlightCenter}"
                                                                SpotlightSize="{Binding SpotlightSize}"
@@ -214,6 +218,27 @@
 
                             <Border Classes="tool-panel" Padding="14">
                                 <StackPanel>
+                                    <CheckBox IsChecked="{Binding PhoneTapMode}" IsEnabled="{Binding PhoneTapAvailable}" ToolTip.Tip="Hides the pointer and shows a tap with a ripple at each recorded click">
+                                        <TextBlock Text="Phone tap" FontWeight="Normal"/>
+                                    </CheckBox>
+                                    <TextBlock Text="Needs a recording made without the Windows cursor." Classes="field-label" TextWrapping="Wrap" Margin="0,5,0,8"/>
+                                    <StackPanel IsVisible="{Binding PhoneTapActive}" Margin="0,0,0,12">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Grid.Column="0" Text="Tap size" Classes="field-label" Margin="0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PhoneTapSize, StringFormat={}{0:0.0}×}" Classes="field-label" Margin="0"/>
+                                        </Grid>
+                                        <Slider Minimum="0.5" Maximum="3" Value="{Binding PhoneTapSize}" TickFrequency="0.1" IsSnapToTickEnabled="True" ToolTip.Tip="How large each tap ripple appears"/>
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                            <TextBlock Grid.Column="0" Text="Brightness" Classes="field-label" Margin="0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PhoneTapBrightness, StringFormat={}{0:0.0}×}" Classes="field-label" Margin="0"/>
+                                        </Grid>
+                                        <Slider Minimum="0.5" Maximum="2" Value="{Binding PhoneTapBrightness}" TickFrequency="0.1" IsSnapToTickEnabled="True" ToolTip.Tip="Makes the tap and its glow easier to see"/>
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                            <TextBlock Grid.Column="0" Text="Impact" Classes="field-label" Margin="0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PhoneTapImpact, StringFormat={}{0:P0}}" Classes="field-label" Margin="0"/>
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="1" Value="{Binding PhoneTapImpact}" TickFrequency="0.05" IsSnapToTickEnabled="True" ToolTip.Tip="Adds a second ring, a stronger glow, and a longer ripple"/>
+                                    </StackPanel>
                                     <Grid ColumnDefinitions="Auto,*">
                                         <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.wand_sparkles}" Classes="icon" FontSize="15" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <TextBlock Grid.Column="1" Classes="section-heading" Text="Effects" Margin="0" VerticalAlignment="Center"/>

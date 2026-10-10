@@ -39,7 +39,7 @@ public enum ScreenRecordingQuickTaskAction
 // continues with the normal after-capture tasks, so a recording is never left hanging.
 public sealed class ScreenRecordingQuickTaskMenu
 {
-    public event Action<ScreenRecordingQuickTaskAction>? ActionSelected;
+    public event Action<ScreenRecordingQuickTaskAction, QuickTaskInfo?>? ActionSelected;
 
     private bool _actionSelected;
 
@@ -54,6 +54,20 @@ public sealed class ScreenRecordingQuickTaskMenu
         MenuItem continueItem = CreateActionItem(menu, Strings.QuickTaskMenu_ShowMenu_Continue,
             LucideIcons.circle_play, ScreenRecordingQuickTaskAction.Continue);
         menu.Items.Add(continueItem);
+
+        bool addedPreset = false;
+        if (ApplicationState.SettingsOrNull?.QuickTaskPresets is { Count: > 0 } presets)
+        {
+            foreach (QuickTaskInfo preset in presets)
+            {
+                if (IsVideoPreset(preset))
+                {
+                    if (!addedPreset) menu.Items.Add(new Separator());
+                    menu.Items.Add(CreatePresetItem(menu, preset));
+                    addedPreset = true;
+                }
+            }
+        }
         menu.Items.Add(new Separator());
 
         if (FileHelpers.IsVideoFile(filePath))
@@ -90,8 +104,10 @@ public sealed class ScreenRecordingQuickTaskMenu
 
         menu.Placement = PlacementMode.BottomEdgeAlignedLeft;
         menu.PlacementTarget = placementWindow;
+        menu.Opened += (_, _) => DebugHelper.WriteLine("Screen recording quick task menu opened.");
         menu.Closed += (_, _) =>
         {
+            DebugHelper.WriteLine("Screen recording quick task menu closed.");
             if (placementWindow.IsVisible) placementWindow.Close();
             Dispatcher.UIThread.Post(() => Select(ScreenRecordingQuickTaskAction.Continue), DispatcherPriority.Background);
         };
@@ -123,16 +139,41 @@ public sealed class ScreenRecordingQuickTaskMenu
             bool first = !_actionSelected;
             _actionSelected = true;
             menu.Close();
-            if (first) Dispatcher.UIThread.Post(() => ActionSelected?.Invoke(action), DispatcherPriority.Background);
+            if (first) Dispatcher.UIThread.Post(() => ActionSelected?.Invoke(action, null), DispatcherPriority.Background);
         };
 
         return item;
+    }
+
+    private MenuItem CreatePresetItem(ContextMenu menu, QuickTaskInfo preset)
+    {
+        MenuItem item = new() { Header = preset.ToString() };
+        item.Click += (_, _) =>
+        {
+            bool first = !_actionSelected;
+            _actionSelected = true;
+            menu.Close();
+            if (first) Dispatcher.UIThread.Post(() => ActionSelected?.Invoke(ScreenRecordingQuickTaskAction.Continue, preset), DispatcherPriority.Background);
+        };
+
+        return item;
+    }
+
+    private static bool IsVideoPreset(QuickTaskInfo preset)
+    {
+        const AfterCaptureTasks supported = AfterCaptureTasks.SaveImageToFile |
+            AfterCaptureTasks.SaveImageToFileWithDialog | AfterCaptureTasks.CopyFileToClipboard |
+            AfterCaptureTasks.CopyFilePathToClipboard | AfterCaptureTasks.CopyFolderPathToClipboard |
+            AfterCaptureTasks.ShowInExplorer | AfterCaptureTasks.ShowBeforeUploadWindow |
+            AfterCaptureTasks.UploadImageToHost | AfterCaptureTasks.DeleteFile;
+
+        return preset.IsValid && (preset.AfterCaptureTasks & ~supported) == AfterCaptureTasks.None;
     }
 
     private void Select(ScreenRecordingQuickTaskAction action)
     {
         if (_actionSelected) return;
         _actionSelected = true;
-        ActionSelected?.Invoke(action);
+        ActionSelected?.Invoke(action, null);
     }
 }
