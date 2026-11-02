@@ -431,6 +431,18 @@ Filsti: {0}</value>
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Vinduestitel</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Nulstil zoom</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Træk for at ændre størrelse</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Zoom ind</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Zoom ud</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Indhold i Udklipsholder</value>
   </data>
@@ -1926,6 +1938,12 @@ Filsti: {0}</value>
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Minimer</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Ny optagelse</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Annuller</value>

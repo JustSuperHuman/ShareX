@@ -431,6 +431,18 @@
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>विंडो शीर्षक</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>ज़ूम रीसेट करें</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>आकार बदलने के लिए खींचें</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>ज़ूम इन करें</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>ज़ूम आउट करें</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>क्लिपबोर्ड सामग्री</value>
   </data>
@@ -1926,6 +1938,12 @@
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>छोटा करना</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>नई रिकॉर्डिंग</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>रद्द करें</value>

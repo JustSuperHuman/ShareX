@@ -431,6 +431,18 @@ Percorso file: {0}</value>
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Titolo finestra</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Reimposta zoom</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Trascina per ridimensionare</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Ingrandisci</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Riduci</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Contenuto degli appunti</value>
   </data>
@@ -1926,6 +1938,12 @@ Percorso file: {0}</value>
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Minimizzare</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Nuova registrazione</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Annulla</value>

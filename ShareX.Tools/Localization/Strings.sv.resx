@@ -431,6 +431,18 @@ Filsökväg: {0}</value>
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Fönstertitel</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Återställ zoom</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Dra för att ändra storlek</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Zooma in</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Zooma ut</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Innehåll i Urklipp</value>
   </data>
@@ -1926,6 +1938,12 @@ Filsökväg: {0}</value>
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Minimera</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Ny inspelning</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Avbryt</value>

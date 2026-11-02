@@ -57,6 +57,7 @@ internal sealed class MainMenuBuilder
         return new List<MainNavigationSection>
         {
             new(Strings.MainMenuBuilder_Capture, LucideIcons.camera, BuildCaptureMenu),
+            new(Strings.MainMenuBuilder_Recording, LucideIcons.video, BuildRecordingMenu),
             new(Strings.MainMenuBuilder_Upload, LucideIcons.upload, BuildUploadMenu, uploadsEnabled),
             new(Strings.MainMenuBuilder_Workflows, LucideIcons.list_checks, BuildWorkflowsMenu),
             new(Strings.MainMenuBuilder_Tools, LucideIcons.wrench, BuildToolsMenu,
@@ -87,6 +88,7 @@ internal sealed class MainMenuBuilder
         List<MainMenuEntry> items = new()
         {
             Parent(Strings.MainMenuBuilder_Capture, LucideIcons.camera, BuildCaptureMenu),
+            Parent(Strings.MainMenuBuilder_Recording, LucideIcons.video, BuildRecordingMenu),
             Parent(Strings.MainMenuBuilder_Upload, LucideIcons.upload, BuildUploadMenu, uploadsEnabled),
             Parent(Strings.MainMenuBuilder_Workflows, LucideIcons.list_checks, BuildWorkflowsMenu),
             CategoryParent(Strings.MainMenuBuilder_Tools, LucideIcons.wrench, BuildToolCategories),
@@ -117,6 +119,82 @@ internal sealed class MainMenuBuilder
         };
 
         return items;
+    }
+
+    // The tray panel's layout: two large actions, a grid of everyday ones, and the remaining menus.
+    public TrayPanelModel BuildTrayPanel()
+    {
+        bool uploadsEnabled = !SystemOptions.DisableUpload;
+        bool autoHide = !_trayMenu;
+
+        return new TrayPanelModel(
+            Heroes:
+            [
+                new TrayPanelHero(Item("Capture region", LucideIcons.scan, () => new CaptureRegion().Capture(autoHide)),
+                    "Drag to select an area", "capture"),
+                new TrayPanelHero(Item("New recording", LucideIcons.circle_play, () => TaskHelpers.OpenRecordingStudio()),
+                    "Screen, camera and mic", "record")
+            ],
+            Tiles:
+            [
+                Item("Fullscreen", LucideIcons.monitor, () => new CaptureFullscreen().Capture(autoHide)),
+                Parent("Window", LucideIcons.app_window, BuildWindowMenu),
+                Item("Last region", LucideIcons.layers, () => new CaptureLastRegion().Capture(autoHide)),
+                Item("Scrolling", LucideIcons.scroll_text, async () => await TaskHelpers.OpenScrollingCapture()),
+                Item("Record area", LucideIcons.video,
+                    () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.Region)),
+                Item("Record GIF", LucideIcons.film,
+                    () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region)),
+                Item("Upload file", LucideIcons.file_up, () => UploadManager.UploadFile(), uploadsEnabled),
+                Item("Clipboard", LucideIcons.clipboard, () => UploadManager.ClipboardUploadMainWindow(), uploadsEnabled)
+            ],
+            Sections:
+            [
+                Parent(Strings.MainMenuBuilder_Capture, LucideIcons.camera, BuildCaptureMenu),
+                Parent(Strings.MainMenuBuilder_Recording, LucideIcons.video, BuildRecordingMenu),
+                Parent(Strings.MainMenuBuilder_Upload, LucideIcons.upload, BuildUploadMenu, uploadsEnabled),
+                Parent(Strings.MainMenuBuilder_Tools, LucideIcons.wrench, BuildToolsMenu),
+                Parent(Strings.MainMenuBuilder_Workflows, LucideIcons.list_checks, BuildWorkflowsMenu),
+                Parent(Strings.MainMenuBuilder_Destinations, LucideIcons.server, BuildDestinationsMenu, uploadsEnabled),
+                Parent("After capture", LucideIcons.image_up, BuildAfterCaptureMenu),
+                Parent("After upload", LucideIcons.cloud_upload, BuildAfterUploadMenu, uploadsEnabled),
+                Parent(Strings.MainMenuBuilder_RecentItems, LucideIcons.clipboard_list, BuildRecentItemsMenu,
+                    ApplicationState.Settings.RecentTasksSave && ApplicationState.Settings.RecentTasksShowInTrayMenu && TaskManager.RecentManager.Tasks.Count > 0)
+            ],
+            Footer:
+            [
+                Item(Strings.MainMenuBuilder_ScreenshotsFolder, LucideIcons.folder_open, () => Run(MainFormCommand.ScreenshotsFolder)),
+                Item(Strings.MainMenuBuilder_History, LucideIcons.history, () => Run(MainFormCommand.History)),
+                Item(Strings.MainMenuBuilder_ImageHistory, LucideIcons.images, () => Run(MainFormCommand.ImageHistory)),
+                Item(Strings.MainMenuBuilder_TaskSettings, LucideIcons.sliders_horizontal, () => Run(MainFormCommand.TaskSettings)),
+                Item(Strings.MainMenuBuilder_HotkeySettings, LucideIcons.keyboard, () => Run(MainFormCommand.HotkeySettings)),
+                Item(Strings.MainMenuBuilder_DestinationSettings, LucideIcons.cloud_cog, () => Run(MainFormCommand.DestinationSettings), uploadsEnabled),
+                Item(ApplicationState.Settings.DisableHotkeys ? Strings.MainMenuBuilder_EnableHotkeys : Strings.MainMenuBuilder_DisableHotkeys,
+                    ApplicationState.Settings.DisableHotkeys ? LucideIcons.keyboard : LucideIcons.keyboard_off,
+                    () => TaskHelpers.ToggleHotkeys()),
+                Item(Strings.MainMenuBuilder_ActionsToolbar, LucideIcons.panel_top, () => TaskHelpers.ToggleActionsToolbar())
+            ],
+            Header:
+            [
+                Item(Strings.MainMenuBuilder_ShowShareX, LucideIcons.maximize_2, MainWindowIntegration.Activate),
+                Item(Strings.MainMenuBuilder_ApplicationSettings, LucideIcons.settings, () => Run(MainFormCommand.ApplicationSettings)),
+                Item(Strings.MainMenuBuilder_Exit, LucideIcons.log_out, ApplicationLifecycle.ForceClose)
+            ]);
+    }
+
+    private IReadOnlyList<MainMenuEntry> BuildRecordingMenu()
+    {
+        return new List<MainMenuEntry>
+        {
+            Item(Strings.MainMenuBuilder_RecordingStudio, LucideIcons.circle_play, () => TaskHelpers.OpenRecordingStudio()),
+            MainMenuEntry.Separator(),
+            Item(Strings.MainMenuBuilder_ScreenRecording, LucideIcons.video,
+                () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.Region)),
+            Item(Strings.MainMenuBuilder_ScreenRecordingGif, LucideIcons.film,
+                () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region)),
+            MainMenuEntry.Separator(),
+            Item(Strings.MainMenuBuilder_VideoEditor, LucideIcons.wand_sparkles, () => TaskHelpers.OpenVideoEditor())
+        };
     }
 
     private IReadOnlyList<MainMenuEntry> BuildCaptureMenu()

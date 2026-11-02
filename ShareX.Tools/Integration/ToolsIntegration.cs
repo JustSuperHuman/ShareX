@@ -254,6 +254,18 @@ public static class ToolsIntegration
         Show(() => new VideoEditorWindow(options, services, inputFilePath));
     }
 
+    public static void ShowRecordingStudioWindow(RecordingStudioOptions options, RecordingStudioServices services)
+    {
+        AvaloniaBootstrapper.EnsureInitialized();
+        Dispatcher.UIThread.Post(() => RecordingStudioWindow.ShowSingle(options, services));
+    }
+
+    // The camera bubble outlives the setup window so it can be recorded; the host closes it when the recording ends.
+    public static void CloseRecordingCamera()
+    {
+        Dispatcher.UIThread.Post(CameraBubbleWindow.CloseCamera);
+    }
+
     public static void ShowVideoPlayerWindow(string? inputFilePath = null)
     {
         Show(() => new VideoPlayerWindow(inputFilePath));

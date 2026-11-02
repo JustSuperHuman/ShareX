@@ -167,6 +167,9 @@ namespace ShareX
                 case HotkeyType.StartScreenRecorder:
                     StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.LastRegion, safeTaskSettings);
                     break;
+                case HotkeyType.RecordingStudio:
+                    OpenRecordingStudio(safeTaskSettings);
+                    break;
                 case HotkeyType.ScreenRecorderGIF:
                     StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region, safeTaskSettings);
                     break;
@@ -843,7 +846,111 @@ namespace ShareX
             settings.CaptureSettings.ScreenRecordShowBar = false;
             settings.CaptureSettings.ScreenRecordStartDelay = 0;
 
-            ScreenRecordManager.StartDeviceFrameRecording(settings, region);
+            ScreenRecordManager.StartRecordingSession(settings, new ScreenRecordSession
+            {
+                Region = region,
+                PhoneTapMode = true
+            });
+        }
+
+        // Opens the "New recording" window: pick a display, window or area plus camera, microphone and
+        // system audio, then start. Pressing the hotkey again while recording stops it.
+        public static void OpenRecordingStudio(TaskSettings taskSettings = null)
+        {
+            if (taskSettings == null) taskSettings = TaskSettings.GetDefaultTaskSettings();
+
+            if (ScreenRecordManager.IsRecording)
+            {
+                StopScreenRecording();
+                return;
+            }
+
+            if (!CheckFFmpeg(taskSettings))
+            {
+                return;
+            }
+
+            UploaderFactory.FileUploaderServices.TryGetValue(FileDestination.Cap, out FileUploaderService capService);
+            bool capConfigured = capService != null && ApplicationState.UploadersConfig != null && capService.CheckConfig(ApplicationState.UploadersConfig);
+
+            RecordingStudioServices services = new(
+                taskSettings.CaptureSettings.FFmpegOptions.FFmpegPath,
+                GetRecordingWindows,
+                request => StartRecordingStudioSession(taskSettings, request),
+                capConfigured,
+                () => OpenUploadersConfigWindow(capService),
+                () => URLHelpers.OpenURL("https://github.com/ShareX/RecorderDevices/releases/latest"));
+
+            ToolsIntegration.ShowRecordingStudioWindow(taskSettings.ToolsSettingsReference.RecordingStudioOptions, services);
+        }
+
+        private static void StartRecordingStudioSession(TaskSettings taskSettings, RecordingStudioRequest request)
+        {
+            TaskSettings sessionSettings = taskSettings;
+
+            if (request.UploadToCap)
+            {
+                // Send just this recording to Cap without touching the user's saved destinations.
+                sessionSettings = taskSettings.Copy();
+                sessionSettings.UseDefaultAfterCaptureJob = false;
+                sessionSettings.AfterCaptureJob = sessionSettings.AfterCaptureJob.Add(AfterCaptureTasks.UploadImageToHost);
+                sessionSettings.UseDefaultDestinations = false;
+                sessionSettings.FileDestination = FileDestination.Cap;
+            }
+
+            ScreenRecordManager.StartRecordingSession(sessionSettings, new ScreenRecordSession
+            {
+                Region = request.Region,
+                WindowHandle = request.WindowHandle,
+                SelectArea = request.Kind == RecordingTargetKind.Area,
+                AudioDevices = request.AudioDevices.ToList(),
+                LiveUploadToCap = request.UploadToCap
+            });
+        }
+
+        private static IReadOnlyList<RecordingWindowInfo> GetRecordingWindows()
+        {
+            List<RecordingWindowInfo> windows = new List<RecordingWindowInfo>();
+            int ownProcessId = Environment.ProcessId;
+
+            try
+            {
+                foreach (WindowInfo window in new WindowsList().GetVisibleWindowsList())
+                {
+                    if (window.IsMinimized || window.ProcessId == ownProcessId) continue;
+
+                    Rectangle bounds = window.Rectangle;
+                    if (bounds.Width < 120 || bounds.Height < 80) continue;
+
+                    windows.Add(new RecordingWindowInfo(window.Handle, window.Text, window.ProcessName ?? "", bounds, GetRecordingWindowIcon(window)));
+                }
+            }
+            catch (Exception e)
+            {
+                DebugHelper.WriteException(e);
+            }
+
+            // Front-to-back order, which the on-screen picker relies on to find the window under the cursor.
+            return windows;
+        }
+
+        private static Avalonia.Media.Imaging.Bitmap GetRecordingWindowIcon(WindowInfo window)
+        {
+            try
+            {
+                using System.Drawing.Icon icon = window.Icon;
+                if (icon == null) return null;
+
+                using System.Drawing.Bitmap bitmap = icon.ToBitmap();
+                using MemoryStream stream = new MemoryStream();
+                bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+                stream.Position = 0;
+                return new Avalonia.Media.Imaging.Bitmap(stream);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static void StopScreenRecording()
@@ -2566,6 +2673,7 @@ namespace ShareX
                 // Screen record
                 HotkeyType.ScreenRecorder => LucideIcons.video,
                 HotkeyType.ScreenRecorderActiveWindow => LucideIcons.app_window,
+                HotkeyType.RecordingStudio => LucideIcons.circle_play,
                 HotkeyType.ScreenRecorderCustomRegion => LucideIcons.crop,
                 HotkeyType.StartScreenRecorder => LucideIcons.circle_play,
                 HotkeyType.ScreenRecorderGIF => LucideIcons.film,

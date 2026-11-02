@@ -430,6 +430,18 @@
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>ウィンドウ タイトル</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>ズームをリセット</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>ドラッグしてサイズを変更</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>縮小</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>クリップボードの内容</value>
   </data>
@@ -1920,6 +1932,12 @@
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>最小化する</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>新しい録画</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>キャンセル</value>

@@ -430,6 +430,18 @@
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>عنوان پنجره</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>بازنشانی بزرگ‌نمایی</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>برای تغییر اندازه بکشید</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>بزرگ‌نمایی</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>کوچک‌نمایی</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>محتوای کلیپ‌بورد</value>
   </data>
@@ -1920,6 +1932,12 @@
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>پیکسل</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>به حداقل رساندن</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>ضبط جدید</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>لغو</value>

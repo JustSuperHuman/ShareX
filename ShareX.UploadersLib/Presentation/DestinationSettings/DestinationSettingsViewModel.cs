@@ -58,6 +58,7 @@ public sealed class DestinationSettingsViewModel : INotifyPropertyChanged
             Page("azure-storage", "Azure Storage", "AzureStorage"), Page("backblaze-b2", "Backblaze B2", "B2", "BackblazeB2"),
             Page("owncloud", "ownCloud / Nextcloud", "OwnCloud", "ownCloud", "Nextcloud"),
             Page("immich", "Immich", "Immich"),
+            Page("cap", "Cap", "Cap"),
             Page("mediafire", "MediaFire", "MediaFire"), Page("pushbullet", "Pushbullet", "Pushbullet"),
             Page("sendspace", "SendSpace", "SendSpace"), Page("hostr", "Hostr", "Localhostr", "Hostr"),
             Page("lambda", "Lambda", "Lambda"), Page("img-fish", "img.fish", "ImgFish", "imgfish"),

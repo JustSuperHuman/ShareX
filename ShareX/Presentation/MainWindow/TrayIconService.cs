@@ -39,6 +39,7 @@ internal interface ITrayIconService : IDisposable
 
     bool Visible { get; set; }
     string ToolTipText { get; set; }
+    System.Drawing.Rectangle? Bounds { get; }
 
     void SetIcon(byte[] iconBytes);
 }
@@ -64,6 +65,22 @@ internal sealed class DesktopTrayIconService : ITrayIconService
     {
         get => _windowsIcon?.ToolTipText ?? _avaloniaIcon!.ToolTipText ?? string.Empty;
         set { if (_windowsIcon != null) _windowsIcon.ToolTipText = value; else _avaloniaIcon!.ToolTipText = value; }
+    }
+
+    public System.Drawing.Rectangle? Bounds
+    {
+        get
+        {
+            if (_windowsIcon?.GetBounds() is { } bounds) return bounds;
+            if (!OperatingSystem.IsWindows()) return null;
+
+            // Hidden icons or an Explorer restart can make the icon rectangle unavailable.
+            IntPtr taskbar = NativeMethods.FindWindow("Shell_TrayWnd", null);
+            if (taskbar == IntPtr.Zero) return null;
+            IntPtr tray = NativeMethods.FindWindowEx(taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
+            System.Drawing.Rectangle fallback = NativeMethods.GetWindowRect(tray != IntPtr.Zero ? tray : taskbar);
+            return fallback.Width > 0 && fallback.Height > 0 ? fallback : null;
+        }
     }
 
     public DesktopTrayIconService(IHotkeyHost host, byte[] icon, string text, bool visible)

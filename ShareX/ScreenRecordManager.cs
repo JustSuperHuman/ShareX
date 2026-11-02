@@ -27,7 +27,10 @@ using ShareX.HelpersLib;
 using ShareX.Localization;
 using ShareX.ScreenCaptureLib;
 using ShareX.Tools;
+using ShareX.Tools.Integration;
+using ShareX.UploadersLib.FileUploaders;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
@@ -39,6 +42,19 @@ using NativeScreenRecorder = ShareX.ScreenRecordingLib.ScreenRecorder;
 
 namespace ShareX
 {
+    // A recording whose target and audio inputs were chosen up front in the "New recording" window.
+    public sealed class ScreenRecordSession
+    {
+        public Rectangle Region { get; set; }
+        public IntPtr WindowHandle { get; set; }
+        public bool SelectArea { get; set; }
+        public bool PhoneTapMode { get; set; }
+        public List<string> AudioDevices { get; set; }
+
+        // Upload to Cap while recording, so the link is ready the moment the recording stops.
+        public bool LiveUploadToCap { get; set; }
+    }
+
     public static class ScreenRecordManager
     {
         public static bool IsRecording { get; private set; }
@@ -49,6 +65,9 @@ namespace ShareX
         private static MouseMotionRecorder mouseMotionRecorder;
         private static ScreenRecordingMotionData pendingMotionData;
         private static ScreenRecorderBarWindow configurationBar;
+        private static bool studioSession;
+        private static string liveUploadPath;
+        private static string pendingLiveUploadPath;
 
         public static async void StartStopRecording(ScreenRecordOutput outputType, ScreenRecordStartMethod startMethod, TaskSettings taskSettings)
         {
@@ -69,11 +88,11 @@ namespace ShareX
             }
         }
 
-        public static async void StartDeviceFrameRecording(TaskSettings taskSettings, Rectangle region)
+        public static async void StartRecordingSession(TaskSettings taskSettings, ScreenRecordSession session)
         {
             if (!IsRecording)
             {
-                await StartRecording(ScreenRecordOutput.FFmpeg, taskSettings, ScreenRecordStartMethod.Region, region);
+                await StartRecording(ScreenRecordOutput.FFmpeg, taskSettings, ScreenRecordStartMethod.Region, session);
             }
         }
 
@@ -106,11 +125,11 @@ namespace ShareX
             }
         }
 
-        private static async Task StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings,
-            ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region, Rectangle? deviceFrameRegion = null)
+        private static async Task StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings, ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region,
+            ScreenRecordSession session = null)
         {
-            // Device frame recordings use an FFmpeg motion track for phone tap effects.
-            bool useNative = !deviceFrameRegion.HasValue && taskSettings.CaptureSettings.ScreenRecordUseNative;
+            // Studio sessions supply FFmpeg audio inputs and can stream a fragmented MP4 to Cap.
+            bool useNative = session == null && taskSettings.CaptureSettings.ScreenRecordUseNative;
             bool isGif = outputType == ScreenRecordOutput.GIF;
             if (!useNative && isGif)
             {
@@ -160,9 +179,21 @@ namespace ShareX
             IntPtr captureWindow = IntPtr.Zero;
             TaskMetadata metadata = new TaskMetadata();
 
-            if (deviceFrameRegion.HasValue)
+            if (session != null && !session.SelectArea)
             {
-                captureRectangle = deviceFrameRegion.Value;
+                if (session.WindowHandle != IntPtr.Zero)
+                {
+                    // Bring the chosen window forward and record where it is now, not where it was when listed.
+                    WindowInfo sessionWindow = new WindowInfo(session.WindowHandle);
+                    sessionWindow.Activate();
+                    await Task.Delay(250);
+                    captureRectangle = CaptureHelpers.GetWindowRectangle(session.WindowHandle);
+                    metadata.UpdateInfo(sessionWindow);
+                }
+                else
+                {
+                    captureRectangle = session.Region;
+                }
             }
             else switch (startMethod)
             {
@@ -203,9 +234,10 @@ namespace ShareX
 
             if (useNative ? !isGif : taskSettings.CaptureSettings.FFmpegOptions.IsEvenSizeRequired)
             {
-                if (deviceFrameRegion.HasValue)
+                if (session?.PhoneTapMode == true)
                 {
-                    // Keep the requested padding when the encoder needs even dimensions.
+                    // Encoders require even dimensions. Add a pixel outside the requested frame
+                    // instead of shaving one pixel off its configured right/bottom padding.
                     if (captureRectangle.Width % 2 != 0)
                     {
                         if (captureRectangle.Right < screenRectangle.Right) captureRectangle.Width++;
@@ -230,9 +262,11 @@ namespace ShareX
 
             if (IsRecording || !captureRectangle.IsValid() || screenRecorder != null || nativeRecorder != null)
             {
+                if (session != null) ToolsIntegration.CloseRecordingCamera();
                 return;
             }
 
+            studioSession = session != null;
             IsRecording = true;
 
             bool startedFromBar = useNative && taskSettings.CaptureSettings.ScreenRecordShowBar;
@@ -372,6 +406,7 @@ namespace ShareX
                             FileHelpers.DeleteFile(concatPath);
                             FileHelpers.DeleteFile(tempPath);
                             pendingMotionData = null;
+                            AbortLiveUpload();
                         }
 
                         if (recordForm.Status == ScreenRecordingStatus.Waiting || recordForm.Status == ScreenRecordingStatus.Paused)
@@ -385,7 +420,7 @@ namespace ShareX
 
                             captureRectangle = recordForm.RecordingRegion;
 
-                            bool trackMouseMotion = (deviceFrameRegion.HasValue || taskSettings.CaptureSettings.ScreenRecordTrackMouseMotion) &&
+                            bool trackMouseMotion = (session?.PhoneTapMode == true || taskSettings.CaptureSettings.ScreenRecordTrackMouseMotion) &&
                                 outputType != ScreenRecordOutput.GIF && !taskSettings.CaptureSettings.FFmpegOptions.IsAnimatedImage;
 
                             // The smooth cursor is drawn in afterwards from the motion track, so the real one has to
@@ -393,7 +428,26 @@ namespace ShareX
                             bool smoothCursor = trackMouseMotion && taskSettings.CaptureSettings.ScreenRecordShowCursor &&
                                 taskSettings.ToolsSettingsReference.VideoEditorOptions.SmoothCursor &&
                                 string.Equals(taskSettings.CaptureSettings.FFmpegOptions.Extension, "mp4", StringComparison.OrdinalIgnoreCase);
-                            bool drawCursor = !deviceFrameRegion.HasValue && taskSettings.CaptureSettings.ScreenRecordShowCursor && !smoothCursor;
+                            // A live upload needs a file that is only ever appended to. Pausing stitches files
+                            // together and the smooth cursor pass rewrites the file, so both switch it off.
+                            bool resumedSegment = recordForm.Status == ScreenRecordingStatus.Paused || File.Exists(concatPath);
+                            bool liveUpload = session != null && session.LiveUploadToCap && !resumedSegment &&
+                                !taskSettings.CaptureSettings.ScreenRecordTwoPassEncoding && ApplicationState.UploadersConfigOrNull != null &&
+                                string.Equals(taskSettings.CaptureSettings.FFmpegOptions.Extension, "mp4", StringComparison.OrdinalIgnoreCase);
+
+                            if (resumedSegment)
+                            {
+                                AbortLiveUpload();
+                            }
+
+                            if (liveUpload)
+                            {
+                                smoothCursor = false;
+                            }
+
+                            pendingLiveUploadPath = liveUpload ? path : null;
+
+                            bool drawCursor = session?.PhoneTapMode != true && taskSettings.CaptureSettings.ScreenRecordShowCursor && !smoothCursor;
 
                             ScreenRecordingOptions options = new ScreenRecordingOptions()
                             {
@@ -404,7 +458,9 @@ namespace ShareX
                                 Duration = duration,
                                 OutputPath = path,
                                 CaptureArea = captureRectangle,
-                                DrawCursor = drawCursor
+                                DrawCursor = drawCursor,
+                                AudioDevices = session?.AudioDevices,
+                                Fragmented = liveUpload
                             };
 
                             Screenshot screenshot = TaskHelpers.GetScreenshot(taskSettings);
@@ -449,8 +505,8 @@ namespace ShareX
                             {
                                 mouseMotionRecorder.Stop();
                                 ScreenRecordingMotionData segment = mouseMotionRecorder.GetData();
-                                segment.CursorHidden = smoothCursor || deviceFrameRegion.HasValue;
-                                segment.PhoneTapMode = deviceFrameRegion.HasValue;
+                                segment.CursorHidden = smoothCursor || session?.PhoneTapMode == true;
+                                segment.PhoneTapMode = session?.PhoneTapMode == true;
 
                                 if (!resumed)
                                 {
@@ -535,6 +591,7 @@ namespace ShareX
 
                 if (abortRequested && !useNative)
                 {
+                    AbortLiveUpload();
                     FileHelpers.DeleteFile(path);
                 }
 
@@ -593,7 +650,10 @@ namespace ShareX
 
                             if (!currentFileName.Equals(customFileName, StringComparison.OrdinalIgnoreCase))
                             {
+                                string previousPath = path;
                                 path = FileHelpers.RenameFile(path, customFileName + ext);
+                                CapLiveUpload.Rename(previousPath, path);
+                                if (liveUploadPath == previousPath) liveUploadPath = path;
                             }
                         }
 
@@ -621,12 +681,14 @@ namespace ShareX
                         {
                             CapCutIntegration.OpenVideo(path);
                         }
+
+                        // The upload task now owns the live session and finishes it.
+                        liveUploadPath = null;
                     }
                 }
                 finally
                 {
-                    IsRecording = false;
-                    pendingMotionData = null;
+                    EndRecording();
                 }
             }
 
@@ -636,8 +698,45 @@ namespace ShareX
             }
             else
             {
-                IsRecording = false;
-                pendingMotionData = null;
+                EndRecording();
+            }
+        }
+
+        private static void StartLiveUpload()
+        {
+            string path = pendingLiveUploadPath;
+            pendingLiveUploadPath = null;
+            UploadersLib.UploadersConfig config = ApplicationState.UploadersConfigOrNull;
+
+            if (!string.IsNullOrEmpty(path) && config != null &&
+                CapLiveUpload.Start(config.CapServerURL, config.CapAPIKey, config.CapOrganizationId, path) != null)
+            {
+                liveUploadPath = path;
+            }
+        }
+
+        // Cancels a live upload whose recording was discarded, paused or restarted.
+        private static void AbortLiveUpload()
+        {
+            pendingLiveUploadPath = null;
+
+            if (!string.IsNullOrEmpty(liveUploadPath))
+            {
+                CapLiveUpload.Abort(liveUploadPath);
+                liveUploadPath = null;
+            }
+        }
+
+        private static void EndRecording()
+        {
+            IsRecording = false;
+            pendingMotionData = null;
+            AbortLiveUpload();
+
+            if (studioSession)
+            {
+                studioSession = false;
+                ToolsIntegration.CloseRecordingCamera();
             }
         }
 
@@ -894,6 +993,7 @@ namespace ShareX
         private static void ScreenRecorder_RecordingStarted()
         {
             mouseMotionRecorder?.Start();
+            StartLiveUpload();
             recordForm.ChangeState(ScreenRecordState.AfterRecordingStart);
         }
 

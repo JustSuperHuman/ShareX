@@ -430,6 +430,18 @@
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Заголовок окна</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Сбросить масштаб</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Перетащите для изменения размера</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Увеличить</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Уменьшить</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Содержимое буфера обмена</value>
   </data>
@@ -1920,6 +1932,12 @@
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>пкс</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Свернуть</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Новая запись</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Отмена</value>

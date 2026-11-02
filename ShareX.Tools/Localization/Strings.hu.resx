@@ -430,6 +430,18 @@
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Ablak címe</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Nagyítás visszaállítása</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Húzza a méretezéshez</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Nagyítás</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Kicsinyítés</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Vágólap tartalma</value>
   </data>
@@ -1920,6 +1932,12 @@
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Minimalizálás</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Új felvétel</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Mégse</value>

@@ -431,6 +431,18 @@ Chemin du fichier : {0}</value>
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Titre de la fenêtre</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Réinitialiser le zoom</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Faire glisser pour redimensionner</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Zoom avant</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Zoom arrière</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Contenu du presse-papiers</value>
   </data>
@@ -1926,6 +1938,12 @@ Chemin du fichier : {0}</value>
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Minimiser</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Nouvel enregistrement</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Annuler</value>

@@ -251,6 +251,8 @@ namespace ShareX
         [Category(EnumExtensions.HotkeyType_Category_ScreenRecord)]
         StartScreenRecorder,
         [Category(EnumExtensions.HotkeyType_Category_ScreenRecord)]
+        RecordingStudio,
+        [Category(EnumExtensions.HotkeyType_Category_ScreenRecord)]
         ScreenRecorderGIF,
         [Category(EnumExtensions.HotkeyType_Category_ScreenRecord)]
         ScreenRecorderGIFActiveWindow,

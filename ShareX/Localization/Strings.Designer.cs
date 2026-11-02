@@ -5351,6 +5351,12 @@ namespace ShareX.Localization {
                 return ResourceManager.GetString("TaskSettingsWindow_OpenRecordingFolderOnNotificationClick", resourceCulture);
             }
         }
+        public static string MainMenuBuilder_RecordingStudio {
+            get { return ResourceManager.GetString("MainMenuBuilder_RecordingStudio", resourceCulture); }
+        }
+        public static string MainMenuBuilder_Recording {
+            get { return ResourceManager.GetString("MainMenuBuilder_Recording", resourceCulture); }
+        }
         public static string QuickTaskMenu_ShowMenu_Continue {
             get {
                 return ResourceManager.GetString("QuickTaskMenu_ShowMenu_Continue", resourceCulture);

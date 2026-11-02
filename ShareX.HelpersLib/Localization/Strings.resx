@@ -792,6 +792,9 @@ Do you still want to run it?</value>
   <data name="HotkeyType_ScreenColorPicker" xml:space="preserve">
     <value>Screen color picker</value>
   </data>
+  <data name="HotkeyType_RecordingStudio" xml:space="preserve">
+    <value>New recording (camera, microphone, screen)</value>
+  </data>
   <data name="HotkeyType_ScreenRecorder" xml:space="preserve">
     <value>Start/Stop screen recording</value>
   </data>

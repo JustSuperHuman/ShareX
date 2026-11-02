@@ -431,6 +431,18 @@
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>視窗標題</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>重設縮放</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>拖曳以調整大小</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>縮小</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>剪貼簿內容</value>
   </data>
@@ -1926,6 +1938,12 @@
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>像素</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>新增錄製</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>取消</value>

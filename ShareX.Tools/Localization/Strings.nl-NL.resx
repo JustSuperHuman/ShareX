@@ -431,6 +431,18 @@ Bestandspad: {0}</value>
   <data name="BorderlessWindowWindow_Window_title" xml:space="preserve">
     <value>Venstertitel</value>
   </data>
+  <data name="CameraBubble_ResetZoom" xml:space="preserve">
+    <value>Zoom herstellen</value>
+  </data>
+  <data name="CameraBubble_Resize" xml:space="preserve">
+    <value>Sleep om het formaat te wijzigen</value>
+  </data>
+  <data name="CameraBubble_ZoomIn" xml:space="preserve">
+    <value>Inzoomen</value>
+  </data>
+  <data name="CameraBubble_ZoomOut" xml:space="preserve">
+    <value>Uitzoomen</value>
+  </data>
   <data name="ClipboardViewerViewModel_Clipboard_content" xml:space="preserve">
     <value>Klembordinhoud</value>
   </data>
@@ -1926,6 +1938,12 @@ Bestandspad: {0}</value>
   </data>
   <data name="QRCodeWindow_px" xml:space="preserve">
     <value>px</value>
+  </data>
+  <data name="RecordingStudio_Minimize" xml:space="preserve">
+    <value>Minimaliseer</value>
+  </data>
+  <data name="RecordingStudio_Title" xml:space="preserve">
+    <value>Nieuwe opname</value>
   </data>
   <data name="RemoteStorageBrowser_Cancel" xml:space="preserve">
     <value>Annuleren</value>

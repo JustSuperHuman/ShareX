@@ -23,6 +23,18 @@ namespace ShareX.Tools.Localization {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Strings {
+
+        public static string RecordingStudio_Title => ResourceManager.GetString("RecordingStudio_Title", resourceCulture);
+
+        public static string RecordingStudio_Minimize => ResourceManager.GetString("RecordingStudio_Minimize", resourceCulture);
+
+        public static string CameraBubble_Resize => ResourceManager.GetString("CameraBubble_Resize", resourceCulture);
+
+        public static string CameraBubble_ResetZoom => ResourceManager.GetString("CameraBubble_ResetZoom", resourceCulture);
+
+        public static string CameraBubble_ZoomIn => ResourceManager.GetString("CameraBubble_ZoomIn", resourceCulture);
+
+        public static string CameraBubble_ZoomOut => ResourceManager.GetString("CameraBubble_ZoomOut", resourceCulture);
         
         public static string MouseHighlighter_Title => ResourceManager.GetString("MouseHighlighter_Title", resourceCulture);
 

@@ -430,6 +430,15 @@ namespace ShareX.UploadersLib
 
         #endregion Immich
 
+        #region Cap
+
+        public string CapServerURL { get; set; } = "https://cap.so";
+        [JsonEncrypt]
+        public string CapAPIKey { get; set; } = "";
+        public string CapOrganizationId { get; set; } = "";
+
+        #endregion Cap
+
         #endregion File uploaders
 
         #region URL shorteners

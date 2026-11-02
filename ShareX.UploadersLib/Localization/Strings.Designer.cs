@@ -595,6 +595,7 @@ namespace ShareX.UploadersLib.Localization
 
         public static string FileDestination_ImgFish => ResourceManager.GetString("FileDestination_ImgFish", resourceCulture) ?? string.Empty;
 
+        public static string FileDestination_Cap => ResourceManager.GetString("FileDestination_Cap", resourceCulture) ?? string.Empty;
         public static string FileDestination_Immich => ResourceManager.GetString("FileDestination_Immich", resourceCulture) ?? string.Empty;
 
         public static string FileDestination_Lambda => ResourceManager.GetString("FileDestination_Lambda", resourceCulture) ?? string.Empty;

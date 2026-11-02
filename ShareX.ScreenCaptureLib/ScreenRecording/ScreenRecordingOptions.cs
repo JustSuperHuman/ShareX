@@ -25,6 +25,7 @@
 
 using ShareX.HelpersLib;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -43,6 +44,14 @@ namespace ShareX.ScreenCaptureLib
         public Rectangle CaptureArea { get; set; }
         public float Duration { get; set; }
         public bool DrawCursor { get; set; }
+
+        // DirectShow audio devices to record for this session (for example a microphone plus the system
+        // audio loopback). When null, the single audio source from the FFmpeg options is used.
+        public List<string> AudioDevices { get; set; }
+
+        // Writes MP4 as self-contained fragments, strictly front to back, so the file can be uploaded
+        // while it is still being recorded.
+        public bool Fragmented { get; set; }
         public FFmpegOptions FFmpeg { get; set; } = new FFmpegOptions();
 
         public string GetFFmpegCommands()
@@ -93,17 +102,22 @@ namespace ShareX.ScreenCaptureLib
 
             string framerate = isCustom ? "$fps$" : FPS.ToString();
 
+            List<string> audioDevices = GetAudioDevices();
+            bool hasAudio = IsRecording ? audioDevices.Count > 0 : FFmpeg.IsAudioSourceSelected;
+            int mixedAudioInputs = 0;
+
+            // With several live audio devices feeding a mix, ffmpeg does not finish on an output-side time
+            // limit, so a fixed duration is applied to every input instead.
+            limitInputDuration = IsRecording && Duration > 0 && audioDevices.Count > 1 && !isCustom;
+
             if (IsRecording)
             {
                 if (FFmpeg.IsVideoSourceSelected)
                 {
                     if (FFmpeg.VideoSource.Equals(FFmpegCaptureDevice.GDIGrab.Value, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (FFmpeg.IsAudioSourceSelected)
-                        {
-                            AppendInputDevice(args, "dshow", true);
-                            args.Append($"-i audio={Helpers.EscapeCLIText(FFmpeg.AudioSource)} ");
-                        }
+                        AppendAudioInputs(args, audioDevices);
+                        mixedAudioInputs = audioDevices.Count;
 
                         string x = isCustom ? "$area_x$" : CaptureArea.X.ToString();
                         string y = isCustom ? "$area_y$" : CaptureArea.Y.ToString();
@@ -122,11 +136,8 @@ namespace ShareX.ScreenCaptureLib
                     }
                     else if (FFmpeg.VideoSource.Equals(FFmpegCaptureDevice.DDAGrab.Value, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (FFmpeg.IsAudioSourceSelected)
-                        {
-                            AppendInputDevice(args, "dshow", true);
-                            args.Append($"-i audio={Helpers.EscapeCLIText(FFmpeg.AudioSource)} ");
-                        }
+                        AppendAudioInputs(args, audioDevices);
+                        mixedAudioInputs = audioDevices.Count;
 
                         DesktopScreen[] screens = DesktopScreen.AllScreens.OrderBy(x => !x.Primary).ToArray();
                         int monitorIndex = 0;
@@ -198,6 +209,14 @@ namespace ShareX.ScreenCaptureLib
             else
             {
                 args.Append($"-i \"{InputPath}\" ");
+            }
+
+            if (mixedAudioInputs > 1)
+            {
+                // Several audio devices are blended into one track; the screen is the input after them.
+                string inputs = string.Concat(Enumerable.Range(0, mixedAudioInputs).Select(i => $"[{i}:a]"));
+                args.Append($"-filter_complex \"{inputs}amix=inputs={mixedAudioInputs}:duration=longest:normalize=0[aout]\" ");
+                args.Append($"-map {mixedAudioInputs}:v -map \"[aout]\" ");
             }
 
             if (!string.IsNullOrEmpty(FFmpeg.UserArgs))
@@ -304,7 +323,13 @@ namespace ShareX.ScreenCaptureLib
                 }
             }
 
-            if (FFmpeg.IsAudioSourceSelected)
+            if (Fragmented && IsRecording && FFmpeg.IsVideoSourceSelected)
+            {
+                // Comes after the codec options so it replaces +faststart, which rewrites the file at the end.
+                args.Append("-movflags +frag_keyframe+empty_moov+default_base_moof ");
+            }
+
+            if (hasAudio)
             {
                 switch (FFmpeg.AudioCodec)
                 {
@@ -323,7 +348,7 @@ namespace ShareX.ScreenCaptureLib
                 }
             }
 
-            if (Duration > 0)
+            if (Duration > 0 && !(limitInputDuration && mixedAudioInputs > 1))
             {
                 string duration = isCustom ? "$duration$" : Duration.ToString("0.0", CultureInfo.InvariantCulture);
                 args.Append($"-t {duration} "); // duration limit
@@ -337,8 +362,34 @@ namespace ShareX.ScreenCaptureLib
             return args.ToString();
         }
 
+        private List<string> GetAudioDevices()
+        {
+            if (AudioDevices != null)
+            {
+                return AudioDevices.Where(device => !string.IsNullOrEmpty(device)).ToList();
+            }
+
+            return FFmpeg.IsAudioSourceSelected ? new List<string> { FFmpeg.AudioSource } : new List<string>();
+        }
+
+        private void AppendAudioInputs(StringBuilder args, List<string> audioDevices)
+        {
+            foreach (string device in audioDevices)
+            {
+                AppendInputDevice(args, "dshow", true);
+                args.Append($"-i audio={Helpers.EscapeCLIText(device)} ");
+            }
+        }
+
+        private bool limitInputDuration;
+
         private void AppendInputDevice(StringBuilder args, string inputDevice, bool audioSource)
         {
+            if (limitInputDuration)
+            {
+                args.Append($"-t {Duration.ToString("0.0", CultureInfo.InvariantCulture)} ");
+            }
+
             args.Append($"-f {inputDevice} ");
             args.Append("-thread_queue_size 1024 "); // This option sets the maximum number of queued packets when reading from the file or device.
             args.Append("-rtbufsize 256M "); // Default real time buffer size is 3041280 (3M)

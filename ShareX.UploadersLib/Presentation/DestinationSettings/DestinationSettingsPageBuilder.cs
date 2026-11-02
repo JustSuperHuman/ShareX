@@ -132,6 +132,10 @@ internal sealed class DestinationSettingsPageBuilder
         {
             cards.Add(BuildImgFishCard());
         }
+        else if (definition.Id == "cap")
+        {
+            cards.Add(BuildCapCard());
+        }
 
         List<Control> simpleEditors = [];
         foreach (PropertyInfo property in properties)
@@ -338,6 +342,65 @@ internal sealed class DestinationSettingsPageBuilder
         return Card(Localization.Strings.DestinationSettings_Settings,
             Row(FormatLabel(nameof(settings.APIKey)) + ":", apiKey),
             Row(FormatLabel(nameof(settings.FileIDLength)) + ":", fileIDLength));
+    }
+
+    // Cap hands out its upload key through a browser sign-in, so the page is a server address and a
+    // button rather than a field to paste a key into.
+    private Control BuildCapCard()
+    {
+        TextBox server = Text(() => _config.CapServerURL, value => _config.CapServerURL = value);
+        server.Watermark = "https://cap.example.com";
+        TextBox organization = Text(() => _config.CapOrganizationId, value => _config.CapOrganizationId = value);
+        organization.Watermark = "Leave empty to use your default organization";
+
+        TextBlock status = Hint(string.Empty);
+        void UpdateStatus(string? message = null)
+        {
+            status.Text = message ?? (string.IsNullOrWhiteSpace(_config.CapAPIKey)
+                ? "Not connected. Sign in to let ShareX upload MP4 recordings to this Cap server."
+                : "Connected. MP4 recordings sent to Cap appear in your dashboard with a share link.");
+        }
+        UpdateStatus();
+
+        CancellationTokenSource? pending = null;
+        Button signIn = Button("Sign in with browser", async () =>
+        {
+            if (!Cap.TryGetServerOrigin(_config.CapServerURL, out _))
+            {
+                UpdateStatus("Enter your Cap server address first, for example https://cap.example.com.");
+                return;
+            }
+
+            pending?.Cancel();
+            pending = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            UpdateStatus("Waiting for you to finish signing in in your browser...");
+
+            try
+            {
+                _config.CapAPIKey = await Cap.RequestAPIKeyAsync(_config.CapServerURL, URLHelpers.OpenURL, pending.Token);
+                UpdateStatus();
+            }
+            catch (OperationCanceledException)
+            {
+                UpdateStatus("Sign-in was not completed. Try again when you are ready.");
+            }
+            catch (Exception e)
+            {
+                UpdateStatus("Sign-in failed: " + e.Message);
+            }
+        });
+        Button signOut = Button("Disconnect", () =>
+        {
+            pending?.Cancel();
+            _config.CapAPIKey = "";
+            UpdateStatus();
+        });
+
+        return Card(Localization.Strings.DestinationSettings_Settings,
+            Row("Server URL:", server),
+            Row("Organization ID:", organization),
+            status,
+            ButtonRow(signIn, signOut));
     }
 
     private Control BuildImgurAlbumsCard()
@@ -933,6 +996,7 @@ internal sealed class DestinationSettingsPageBuilder
                 nameof(UploadersConfig.MegaSelectedFolder),
             "amazon-s3" => member.Name == nameof(UploadersConfig.AmazonS3Settings),
             "img-fish" => member.Name == nameof(UploadersConfig.ImgFishSettings),
+            "cap" => true,
             _ => false
         };
     }

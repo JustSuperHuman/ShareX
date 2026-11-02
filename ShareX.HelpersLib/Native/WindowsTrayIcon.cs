@@ -63,6 +63,20 @@ public sealed class WindowsTrayIcon : IDisposable
 
     public static TimeSpan DoubleClickTime => TimeSpan.FromMilliseconds(GetDoubleClickTime());
 
+    public System.Drawing.Rectangle? GetBounds()
+    {
+        if (!added) return null;
+        NotifyIconIdentifier identifier = new()
+        {
+            Size = (uint)Marshal.SizeOf<NotifyIconIdentifier>(),
+            Window = host.Handle,
+            Id = 1
+        };
+        return ShellNotifyIconGetRect(ref identifier, out RECT bounds) == 0 && bounds.Width > 0 && bounds.Height > 0
+            ? (System.Drawing.Rectangle)bounds
+            : null;
+    }
+
     public void SetIcon(byte[] bytes)
     {
         int size = NativeMethods.GetSystemMetrics(SystemMetric.SM_CXSMICON);
@@ -148,6 +162,17 @@ public sealed class WindowsTrayIcon : IDisposable
     [DllImport("shell32.dll", EntryPoint = "Shell_NotifyIconW", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ShellNotifyIcon(uint message, ref NotifyIconData data);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NotifyIconIdentifier
+    {
+        public uint Size;
+        public IntPtr Window;
+        public uint Id;
+        public Guid Guid;
+    }
+
+    [DllImport("shell32.dll", EntryPoint = "Shell_NotifyIconGetRect")]
+    private static extern int ShellNotifyIconGetRect(ref NotifyIconIdentifier identifier, out RECT bounds);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterWindowMessage(string message);
     [DllImport("user32.dll")]

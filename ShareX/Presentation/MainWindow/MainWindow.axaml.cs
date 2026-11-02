@@ -67,6 +67,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private ContextMenu? _activeContextMenu;
     private Flyout? _activeGridMenu;
     private Window? _trayMenuAnchor;
+    private TrayPanelWindow? _trayPanel;
     private PointerPressedEventArgs? _thumbnailDragTrigger;
     private Task<IStorageFile?>? _thumbnailDragFileTask;
     private IPointer? _thumbnailDragPointer;
@@ -205,45 +206,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public void ShowTrayMenu()
     {
-        if (_trayMenuAnchor != null)
+        if (_trayPanel != null)
         {
-            CloseActiveContextMenu();
-            CloseTrayMenuAnchor();
+            CloseTrayPanel();
             return;
         }
 
         CloseActiveContextMenu();
 
-        System.Drawing.Point cursorPosition = CaptureHelpers.GetCursorPosition();
-        PixelPoint anchorPosition = new(cursorPosition.X, cursorPosition.Y);
-        Window anchor = CreateTrayMenuAnchor(anchorPosition);
-        _trayMenuAnchor = anchor;
-        anchor.Deactivated += OnTrayMenuAnchorDeactivated;
-        anchor.Show();
-        anchor.Position = anchorPosition;
-        anchor.Activate();
-
-        ContextMenu menu = BuildContextMenu(_trayMenuBuilder.BuildTrayMenu());
-        menu.Closed += OnTrayMenuClosed;
-
-        try
+        System.Drawing.Rectangle? trayBounds = _trayIconService.Bounds;
+        TrayPanelWindow panel = new(_trayMenuBuilder.BuildTrayPanel(), BuildContextMenu);
+        _trayPanel = panel;
+        panel.Closed += (_, _) =>
         {
-            if (!TryOpenContextMenu(menu, anchor, PlacementMode.BottomEdgeAlignedLeft))
+            if (ReferenceEquals(_trayPanel, panel))
             {
-                menu.Closed -= OnTrayMenuClosed;
-                CloseTrayMenuAnchor();
+                _trayPanel = null;
             }
-            else if (ApplicationState.Settings.TrayAutoExpandCaptureMenu && menu.Items.OfType<MenuItem>().FirstOrDefault() is MenuItem captureItem)
-            {
-                Dispatcher.UIThread.Post(captureItem.Open);
-            }
-        }
-        catch
-        {
-            menu.Closed -= OnTrayMenuClosed;
-            CloseTrayMenuAnchor();
-            throw;
-        }
+
+            SettingManager.SaveAllSettingsAsync();
+        };
+        panel.ShowAtTray(trayBounds is { } bounds ? new PixelRect(bounds.X, bounds.Y, bounds.Width, bounds.Height) : null);
+    }
+
+    private void CloseTrayPanel()
+    {
+        TrayPanelWindow? panel = _trayPanel;
+        _trayPanel = null;
+        panel?.ClosePanel();
     }
 
     private void WarmUpTrayMenu()
@@ -1988,6 +1978,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 CloseActiveContextMenu();
                 CloseTrayMenuAnchor();
+                CloseTrayPanel();
             }
         });
     }

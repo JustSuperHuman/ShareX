@@ -1,0 +1,308 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:ShareX.Tools"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        xmlns:localization="using:ShareX.Tools.Localization"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="640"
+        x:Class="ShareX.Tools.RecordingStudioWindow"
+        x:DataType="vm:RecordingStudioViewModel"
+        Title="{x:Static localization:Strings.RecordingStudio_Title}"
+        Width="380"
+        SizeToContent="Height"
+        CanResize="False"
+        CanMaximize="False"
+        Topmost="True"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="46"
+        WindowDecorations="BorderOnly"
+        Background="{DynamicResource ShareX.Brush.Background.Main}"
+        WindowStartupLocation="Manual">
+
+    <Window.Styles>
+        <Style Selector="Button.recording-caption">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="46"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text}"/>
+        </Style>
+        <Style Selector="Button.recording-caption /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.recording-caption:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background.Hover}"/>
+        </Style>
+        <Style Selector="Button.recording-caption:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Control.Background}"/>
+        </Style>
+        <Style Selector="Button.recording-close:pointerover">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.recording-close:pointerover TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.recording-close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#C42B1C"/>
+        </Style>
+        <Style Selector="Button.recording-close:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#A51D12"/>
+        </Style>
+        <Style Selector="TextBlock.row-label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="Margin" Value="2,0,0,6"/>
+        </Style>
+        <Style Selector="TextBlock.item-title">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.item-detail">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="ComboBox.device">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="MaxDropDownHeight" Value="320"/>
+        </Style>
+        <Style Selector="Button.target">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,10"/>
+            <Setter Property="Height" Value="72"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Border}"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Background.Panel}"/>
+        </Style>
+        <Style Selector="Button.target.selected">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent}"/>
+        </Style>
+        <Style Selector="Button.target.selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource ShareX.Brush.Accent}"/>
+        </Style>
+        <Style Selector="Button.target.selected TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+        </Style>
+        <Style Selector="Button.start">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Height" Value="46"/>
+            <Setter Property="CornerRadius" Value="23"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+        </Style>
+        <Style Selector="Button.start /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent.Foreground}"/>
+            <Setter Property="CornerRadius" Value="23"/>
+        </Style>
+        <Style Selector="Button.start:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        <Style Selector="Button.start:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <Style Selector="Button.link">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Height" Value="NaN"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Accent}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Border Background="{DynamicResource ShareX.Brush.Background.Main}"
+                BorderBrush="{DynamicResource ShareX.Brush.Border}" BorderThickness="1"
+                CornerRadius="7" ClipToBounds="True">
+            <Grid RowDefinitions="Auto,*">
+                <Border x:Name="RecordingTitleBar" Height="46" Background="Transparent"
+                        chrome:WindowDecorationProperties.ElementRole="TitleBar">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="16,0,12,0"
+                                    VerticalAlignment="Center" IsHitTestVisible="False">
+                            <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.video}" FontSize="17"
+                                       Foreground="{DynamicResource ShareX.Brush.Accent}"/>
+                            <TextBlock Text="{x:Static localization:Strings.RecordingStudio_Title}"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ShareX.Brush.Text}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="MinimizeRecordingWindow" Classes="recording-caption"
+                                    AutomationProperties.Name="{x:Static localization:Strings.RecordingStudio_Minimize}"
+                                    ToolTip.Tip="{x:Static localization:Strings.RecordingStudio_Minimize}"
+                                    Click="OnMinimizeClick" chrome:WindowDecorationProperties.ElementRole="MinimizeButton">
+                                <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.minus}" FontSize="14"/>
+                            </Button>
+                            <Button x:Name="CloseRecordingWindow" Classes="recording-caption recording-close"
+                                    AutomationProperties.Name="{x:Static localization:Strings.PinToScreenWindow_Close}"
+                                    ToolTip.Tip="{x:Static localization:Strings.PinToScreenWindow_Close}"
+                                    Click="OnCloseClick" chrome:WindowDecorationProperties.ElementRole="CloseButton">
+                                <TextBlock Classes="icon" Text="{x:Static theming:LucideIcons.x}" FontSize="15"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Border Grid.Row="1" Padding="16,8,16,16">
+                    <StackPanel Spacing="14">
+                        <UniformGrid Columns="3" ColumnSpacing="8">
+                            <Button Classes="target" Classes.selected="{Binding IsDisplay}" Command="{Binding SelectTargetCommand}" CommandParameter="Display">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="{x:Static theming:LucideIcons.monitor}" Classes="icon" FontSize="22" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Display" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="target" Classes.selected="{Binding IsWindow}" Command="{Binding SelectTargetCommand}" CommandParameter="Window">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="{x:Static theming:LucideIcons.app_window}" Classes="icon" FontSize="22" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Window" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="target" Classes.selected="{Binding IsArea}" Command="{Binding SelectTargetCommand}" CommandParameter="Area">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="{x:Static theming:LucideIcons.square_dashed}" Classes="icon" FontSize="22" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Area" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </UniformGrid>
+
+                        <StackPanel IsVisible="{Binding IsDisplay}">
+                            <ComboBox Classes="device" ItemsSource="{Binding Displays}" SelectedItem="{Binding SelectedDisplay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RecordingDisplayItem">
+                                        <StackPanel>
+                                            <TextBlock Classes="item-title" Text="{Binding Title}"/>
+                                            <TextBlock Classes="item-detail" Text="{Binding Detail}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <Grid IsVisible="{Binding IsWindow}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <ComboBox Grid.Column="0" Classes="device" ItemsSource="{Binding Windows}" SelectedItem="{Binding SelectedWindow}" PlaceholderText="No windows are open">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RecordingWindowItem">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                            <Image Grid.Column="0" Source="{Binding Icon}" Width="22" Height="22" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Classes="item-title" Text="{Binding Title}"/>
+                                                <TextBlock Classes="item-detail" Text="{Binding Detail}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1" Command="{Binding PickOnScreenCommand}" Height="48" Width="44" MinWidth="0" ToolTip.Tip="Point at a window on screen">
+                                <TextBlock Text="{x:Static theming:LucideIcons.mouse_pointer_click}" Classes="icon"/>
+                            </Button>
+                            <Button Grid.Column="2" Command="{Binding RefreshWindowsCommand}" Height="48" Width="44" MinWidth="0" ToolTip.Tip="Refresh the list of open windows">
+                                <TextBlock Text="{x:Static theming:LucideIcons.refresh_cw}" Classes="icon"/>
+                            </Button>
+                        </Grid>
+
+                        <Border IsVisible="{Binding IsArea}" Classes="tool-panel" MinHeight="48" Padding="12,8">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.crop}" Classes="icon" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Press Start, then drag over the part of the screen you want to record." TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Separator Margin="0,2"/>
+
+                        <StackPanel>
+                            <TextBlock Classes="row-label" Text="Camera"/>
+                            <ComboBox Classes="device" ItemsSource="{Binding Cameras}" SelectedItem="{Binding SelectedCamera}" IsEnabled="{Binding DevicesLoaded}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RecordingDeviceItem">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                            <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.video}" Classes="icon" FontSize="16" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Classes="item-title" Text="{Binding Title}"/>
+                                                <TextBlock Classes="item-detail" Text="{Binding Detail}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Classes="row-label" Text="Microphone"/>
+                            <ComboBox Classes="device" ItemsSource="{Binding Microphones}" SelectedItem="{Binding SelectedMicrophone}" IsEnabled="{Binding DevicesLoaded}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RecordingDeviceItem">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                            <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.mic}" Classes="icon" FontSize="16" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Classes="item-title" Text="{Binding Title}"/>
+                                                <TextBlock Classes="item-detail" Text="{Binding Detail}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ProgressBar Minimum="0" Maximum="1" Value="{Binding MicrophoneLevel}" Height="4" MinHeight="4" Margin="0,6,0,0"
+                                         IsVisible="{Binding MicrophoneActive}" ToolTip.Tip="Live microphone level"/>
+                        </StackPanel>
+
+                        <Border Classes="tool-panel" Padding="12,8">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                    <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.volume_2}" Classes="icon" FontSize="16" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="System audio"/>
+                                        <TextBlock Classes="item-detail" Text="Whatever plays through your speakers"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding SystemAudio}" IsEnabled="{Binding SystemAudioAvailable}" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                </Grid>
+                                <StackPanel IsVisible="{Binding SystemAudioMissing}" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Classes="item-detail" Text="Needs the ShareX audio capture device."/>
+                                    <Button Classes="link" Content="Get it" Command="{Binding OpenAudioDeviceDownloadCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="tool-panel" Padding="12,8">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <TextBlock Grid.Column="0" Text="{x:Static theming:LucideIcons.upload}" Classes="icon" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Upload to Cap"/>
+                                    <TextBlock Classes="item-detail" Text="Uploads while you record, so the link is ready when you stop" IsVisible="{Binding CapConfigured}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding CapNotConfigured}">
+                                        <TextBlock Classes="item-detail" Text="Not connected to a Cap server yet."/>
+                                        <Button Classes="link" Content="Connect" Command="{Binding OpenCapSettingsCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="2" IsChecked="{Binding UploadToCap}" IsEnabled="{Binding CapConfigured}" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Button Classes="start" Command="{Binding StartCommand}" IsEnabled="{Binding CanStart}" ToolTip.Tip="Start recording (Enter)">
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <TextBlock Text="{x:Static theming:LucideIcons.circle_play}" Classes="icon" FontSize="17" VerticalAlignment="Center" Foreground="White"/>
+                                <TextBlock Text="Start recording" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </ThemeVariantScope>
+</Window>

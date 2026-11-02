@@ -1990,6 +1990,12 @@ Please run ShareX as administrator to change personal folder path.</value>
   <data name="TaskSettingsWindow_OpenRecordingFolderOnNotificationClick" xml:space="preserve">
     <value>Open screen recording folder when notification is clicked</value>
   </data>
+  <data name="MainMenuBuilder_RecordingStudio" xml:space="preserve">
+    <value>New recording...</value>
+  </data>
+  <data name="MainMenuBuilder_Recording" xml:space="preserve">
+    <value>Recording</value>
+  </data>
   <data name="QuickTaskMenu_ShowMenu_Continue" xml:space="preserve">
     <value>Continue</value>
   </data>

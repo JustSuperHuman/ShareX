@@ -1,0 +1,149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:theming="using:ShareX.AvaloniaUI.Theming"
+        x:Class="ShareX.TrayPanelWindow"
+        Title="ShareX"
+        Width="404"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowDecorations="None"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <Style Selector="Button.hero">
+            <Setter Property="Height" Value="96"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.hero /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.hero.capture /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#3B82F6" Offset="0"/>
+                    <GradientStop Color="#4F46E5" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+        </Style>
+        <Style Selector="Button.hero.record /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#F43F5E" Offset="0"/>
+                    <GradientStop Color="#C026D3" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+        </Style>
+        <Style Selector="Button.hero:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        <Style Selector="Button.hero:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+        <Style Selector="Button.hero TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <Style Selector="Button.tile">
+            <Setter Property="Height" Value="72"/>
+            <Setter Property="Padding" Value="4,8"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.tile /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.tile TextBlock.tile-label">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <Style Selector="Button.section">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="10,0,8,0"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.section /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.section TextBlock.section-label">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <Style Selector="Button.round">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.round /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="TextBlock.group">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ShareX.Brush.Text.Secondary}"/>
+            <Setter Property="Margin" Value="4,0,0,6"/>
+        </Style>
+    </Window.Styles>
+
+    <ThemeVariantScope>
+        <Border Margin="14"
+                CornerRadius="16"
+                Padding="14"
+                Background="{DynamicResource ShareX.Brush.Background.Main}"
+                BorderBrush="{DynamicResource ShareX.Brush.Border}"
+                BorderThickness="1"
+                BoxShadow="0 8 28 0 #66000000">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="ShareX" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    <StackPanel Grid.Column="1" x:Name="HeaderButtons" Orientation="Horizontal" Spacing="2"/>
+                </Grid>
+
+                <UniformGrid x:Name="HeroGrid" Columns="2" ColumnSpacing="10"/>
+
+                <UniformGrid x:Name="TileGrid" Columns="4" ColumnSpacing="8" RowSpacing="8"/>
+
+                <Border Height="1" Background="{DynamicResource ShareX.Brush.Separator}" Margin="0,2"/>
+
+                <StackPanel>
+                    <TextBlock Classes="group" Text="MORE"/>
+                    <UniformGrid x:Name="SectionGrid" Columns="2" ColumnSpacing="6" RowSpacing="2"/>
+                </StackPanel>
+
+                <Border Height="1" Background="{DynamicResource ShareX.Brush.Separator}" Margin="0,2"/>
+
+                <UniformGrid x:Name="FooterGrid" Rows="1"/>
+            </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </ThemeVariantScope>
+</Window>

@@ -865,6 +865,9 @@ namespace ShareX.HelpersLib.Localization {
         public static string HotkeyType_ScreenColorPicker {
             get { return ResourceManager.GetString("HotkeyType_ScreenColorPicker", resourceCulture); }
         }
+        public static string HotkeyType_RecordingStudio {
+            get { return ResourceManager.GetString("HotkeyType_RecordingStudio", resourceCulture); }
+        }
         public static string HotkeyType_ScreenRecorder {
             get { return ResourceManager.GetString("HotkeyType_ScreenRecorder", resourceCulture); }
         }

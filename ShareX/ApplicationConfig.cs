@@ -277,7 +277,7 @@ namespace ShareX
 
         #region Actions toolbar
 
-        public List<HotkeyType> ActionsToolbarList = new List<HotkeyType>() { HotkeyType.RectangleRegion, HotkeyType.PrintScreen, HotkeyType.ScreenRecorder,
+        public List<HotkeyType> ActionsToolbarList = new List<HotkeyType>() { HotkeyType.RectangleRegion, HotkeyType.PrintScreen, HotkeyType.RecordingStudio, HotkeyType.ScreenRecorder,
             HotkeyType.None, HotkeyType.FileUpload, HotkeyType.ClipboardUploadWithContentViewer };
 
         public bool ActionsToolbarRunAtStartup = false;
