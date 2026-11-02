@@ -628,27 +628,6 @@ namespace ShareX.HelpersLib.Localization {
         public static string Error {
             get { return ResourceManager.GetString("Error", resourceCulture); }
         }
-        public static string Extensions_AddContextMenu_Copy {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_Copy", resourceCulture); }
-        }
-        public static string Extensions_AddContextMenu_Cut {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_Cut", resourceCulture); }
-        }
-        public static string Extensions_AddContextMenu_Delete {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_Delete", resourceCulture); }
-        }
-        public static string Extensions_AddContextMenu_Paste {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_Paste", resourceCulture); }
-        }
-        public static string Extensions_AddContextMenu_Redo {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_Redo", resourceCulture); }
-        }
-        public static string Extensions_AddContextMenu_SelectAll {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_SelectAll", resourceCulture); }
-        }
-        public static string Extensions_AddContextMenu_Undo {
-            get { return ResourceManager.GetString("Extensions_AddContextMenu_Undo", resourceCulture); }
-        }
         public static string FileDestination_CustomFileUploader {
             get { return ResourceManager.GetString("FileDestination_CustomFileUploader", resourceCulture); }
         }
@@ -670,6 +649,9 @@ namespace ShareX.HelpersLib.Localization {
         public static string FileExistAction_UniqueName {
             get { return ResourceManager.GetString("FileExistAction_UniqueName", resourceCulture); }
         }
+        public static string GIFQuality_Adaptive {
+            get { return ResourceManager.GetString("GIFQuality_Adaptive", resourceCulture); }
+        }
         public static string GIFQuality_Bit4 {
             get { return ResourceManager.GetString("GIFQuality_Bit4", resourceCulture); }
         }
@@ -681,12 +663,6 @@ namespace ShareX.HelpersLib.Localization {
         }
         public static string GIFQuality_Grayscale {
             get { return ResourceManager.GetString("GIFQuality_Grayscale", resourceCulture); }
-        }
-        public static string Helpers_BrowseFile_Choose_file {
-            get { return ResourceManager.GetString("Helpers_BrowseFile_Choose_file", resourceCulture); }
-        }
-        public static string Helpers_BrowseFolder_Choose_folder {
-            get { return ResourceManager.GetString("Helpers_BrowseFolder_Choose_folder", resourceCulture); }
         }
         public static string Helpers_CreateDirectoryIfNotExist_Create_failed_ {
             get { return ResourceManager.GetString("Helpers_CreateDirectoryIfNotExist_Create_failed_", resourceCulture); }
@@ -795,6 +771,9 @@ namespace ShareX.HelpersLib.Localization {
         }
         public static string HotkeyType_ImageEditor {
             get { return ResourceManager.GetString("HotkeyType_ImageEditor", resourceCulture); }
+        }
+        public static string HotkeyType_PhotoEditor {
+            get { return ResourceManager.GetString("HotkeyType_PhotoEditor", resourceCulture); }
         }
         public static string HotkeyType_ImageEffects {
             get { return ResourceManager.GetString("HotkeyType_ImageEffects", resourceCulture); }
@@ -1017,6 +996,15 @@ namespace ShareX.HelpersLib.Localization {
         }
         public static string PastebinPrivacy_Unlisted {
             get { return ResourceManager.GetString("PastebinPrivacy_Unlisted", resourceCulture); }
+        }
+        public static string BMPBitDepth_Automatic {
+            get { return ResourceManager.GetString("BMPBitDepth_Automatic", resourceCulture); }
+        }
+        public static string BMPBitDepth_Bit24 {
+            get { return ResourceManager.GetString("BMPBitDepth_Bit24", resourceCulture); }
+        }
+        public static string BMPBitDepth_Bit32 {
+            get { return ResourceManager.GetString("BMPBitDepth_Bit32", resourceCulture); }
         }
         public static string PNGBitDepth_Automatic {
             get { return ResourceManager.GetString("PNGBitDepth_Automatic", resourceCulture); }

@@ -166,6 +166,15 @@
   <data name="ArrowHeadDirection_Start" xml:space="preserve">
     <value>Đầu</value>
   </data>
+  <data name="BMPBitDepth_Automatic" xml:space="preserve">
+    <value>Tự động phát hiện</value>
+  </data>
+  <data name="BMPBitDepth_Bit24" xml:space="preserve">
+    <value>24 bit</value>
+  </data>
+  <data name="BMPBitDepth_Bit32" xml:space="preserve">
+    <value>32 bit</value>
+  </data>
   <data name="BorderStyle_Dash" xml:space="preserve">
     <value>Dấu gạch ngang</value>
   </data>
@@ -498,27 +507,6 @@ Bạn vẫn muốn chạy tệp này chứ?</value>
   <data name="ErrorWindow_Unexpected_error" xml:space="preserve">
     <value>Đã xảy ra lỗi không mong muốn.</value>
   </data>
-  <data name="Extensions_AddContextMenu_Copy" xml:space="preserve">
-    <value>Sao chép</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Cut" xml:space="preserve">
-    <value>Cắt</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Delete" xml:space="preserve">
-    <value>Xóa</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Paste" xml:space="preserve">
-    <value>Dán</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Redo" xml:space="preserve">
-    <value>Làm lại</value>
-  </data>
-  <data name="Extensions_AddContextMenu_SelectAll" xml:space="preserve">
-    <value>Chọn tất cả</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Undo" xml:space="preserve">
-    <value>Hoàn tác</value>
-  </data>
   <data name="FFmpegCLIManager_Error_title" xml:space="preserve">
     <value>Lỗi FFmpeg</value>
   </data>
@@ -546,6 +534,9 @@ Bạn vẫn muốn chạy tệp này chứ?</value>
   <data name="FileHelpers_Rename_file_error" xml:space="preserve">
     <value>Lỗi đổi tên tệp:</value>
   </data>
+  <data name="GIFQuality_Adaptive" xml:space="preserve">
+    <value>Bộ lượng tử thích ứng 256 màu</value>
+  </data>
   <data name="GIFQuality_Bit4" xml:space="preserve">
     <value>Bộ lượng tử octree 16 màu (4 bit)</value>
   </data>
@@ -560,12 +551,6 @@ Bạn vẫn muốn chạy tệp này chứ?</value>
   </data>
   <data name="HSB_ToString_" xml:space="preserve">
     <value>Hue: {0:0.0}°, Tương phản: {1:0.0}%, Độ sáng: {2:0.0}%</value>
-  </data>
-  <data name="Helpers_BrowseFile_Choose_file" xml:space="preserve">
-    <value>Chọn tệp</value>
-  </data>
-  <data name="Helpers_BrowseFolder_Choose_folder" xml:space="preserve">
-    <value>Chọn thư mục</value>
   </data>
   <data name="Helpers_CreateDirectoryIfNotExist_Create_failed_" xml:space="preserve">
     <value>Không thể tạo đường dẫn.</value>
@@ -767,6 +752,9 @@ Bạn vẫn muốn chạy tệp này chứ?</value>
   </data>
   <data name="HotkeyType_PauseScreenRecording" xml:space="preserve">
     <value>Tạm dừng ghi màn hình</value>
+  </data>
+  <data name="HotkeyType_PhotoEditor" xml:space="preserve">
+    <value>Trình chỉnh sửa ảnh chụp</value>
   </data>
   <data name="HotkeyType_PinToScreen" xml:space="preserve">
     <value>Ghim vào màn hình</value>

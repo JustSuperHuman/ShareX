@@ -72,6 +72,7 @@ internal sealed class MainMenuBuilder
             new(Strings.MainMenuBuilder_ScreenshotsFolder, LucideIcons.folder_open, () => Run(MainFormCommand.ScreenshotsFolder)),
             new(Strings.MainMenuBuilder_History, LucideIcons.history, () => Run(MainFormCommand.History)),
             new(Strings.MainMenuBuilder_ImageHistory, LucideIcons.images, () => Run(MainFormCommand.ImageHistory)),
+            new(Strings.MainMenuBuilder_Stats, LucideIcons.chart_column, () => Run(MainFormCommand.Stats)),
             new(Strings.MainMenuBuilder_Debug, LucideIcons.bug, BuildDebugMenu),
             new(Strings.MainMenuBuilder_Donate, LucideIcons.heart, () => Run(MainFormCommand.Donate)),
             new(Strings.MainMenuBuilder_FollowShareX, LucideIcons.external_link, () => Run(MainFormCommand.X)),
@@ -269,6 +270,7 @@ internal sealed class MainMenuBuilder
             Tool(nameof(Strings.MainMenuBuilder_ImageResizer), Strings.MainMenuBuilder_ImageResizer, LucideIcons.maximize_2, () => TaskHelpers.OpenImageResizer()),
             Tool(nameof(Strings.MainMenuBuilder_ImageSplitter), Strings.MainMenuBuilder_ImageSplitter, LucideIcons.split, () => TaskHelpers.OpenImageSplitter()),
             Tool(nameof(Strings.MainMenuBuilder_ImageThumbnailer), Strings.MainMenuBuilder_ImageThumbnailer, LucideIcons.shrink, () => TaskHelpers.OpenImageThumbnailer()),
+            Tool(nameof(Strings.MainMenuBuilder_PhotoEditor), Strings.MainMenuBuilder_PhotoEditor, LucideIcons.layers, () => TaskHelpers.OpenPhotoEditor()),
             Tool(nameof(Strings.MainMenuBuilder_ImageViewer), Strings.MainMenuBuilder_ImageViewer, LucideIcons.eye, () => TaskHelpers.OpenImageViewer()),
             Tool(nameof(Strings.MainMenuBuilder_ImageWatermark), Strings.MainMenuBuilder_ImageWatermark, LucideIcons.stamp, () => TaskHelpers.OpenImageWatermark())
         ]),
@@ -278,6 +280,7 @@ internal sealed class MainMenuBuilder
             Tool(nameof(Strings.MainMenuBuilder_AnimatedGifTrimmer), Strings.MainMenuBuilder_AnimatedGifTrimmer, LucideIcons.scissors_square, () => TaskHelpers.OpenAnimatedGifTrimmer()),
             Tool(nameof(Strings.MainMenuBuilder_VideoConverter), Strings.MainMenuBuilder_VideoConverter, LucideIcons.file_video, () => TaskHelpers.OpenVideoConverter()),
             Tool(nameof(Strings.MainMenuBuilder_VideoEditor), Strings.MainMenuBuilder_VideoEditor, LucideIcons.wand_sparkles, () => TaskHelpers.OpenVideoEditor()),
+            Tool(nameof(Strings.MainMenuBuilder_VideoPlayer), Strings.MainMenuBuilder_VideoPlayer, LucideIcons.circle_play, () => TaskHelpers.OpenVideoPlayer()),
             Tool(nameof(Strings.MainMenuBuilder_VideoThumbnailer), Strings.MainMenuBuilder_VideoThumbnailer, LucideIcons.clapperboard, () => TaskHelpers.OpenVideoThumbnailer()),
             Tool(nameof(Strings.MainMenuBuilder_VideoTrimmer), Strings.MainMenuBuilder_VideoTrimmer, LucideIcons.scissors, () => TaskHelpers.OpenVideoTrimmer())
         ]),
@@ -415,7 +418,7 @@ internal sealed class MainMenuBuilder
             .Select(task => (task, task.GetLocalizedDescription(), GetAfterUploadTaskIcon(task)))
             .ToArray();
 
-    private static string GetAfterCaptureTaskIcon(AfterCaptureTasks task) => task switch
+    internal static string GetAfterCaptureTaskIcon(AfterCaptureTasks task) => task switch
     {
         AfterCaptureTasks.ShowQuickTaskMenu => LucideIcons.menu,
         AfterCaptureTasks.ShowAfterCaptureWindow => LucideIcons.app_window,

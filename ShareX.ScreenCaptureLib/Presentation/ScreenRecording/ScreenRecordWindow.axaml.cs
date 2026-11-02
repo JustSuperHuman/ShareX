@@ -62,6 +62,7 @@ public partial class ScreenRecordWindow : Window, IDisposable
 
     private readonly int _captureWidth;
     private readonly int _captureHeight;
+    private readonly PixelPoint _initialPosition;
     private readonly DispatcherTimer _refreshTimer;
     private readonly NativeMenu _trayMenu;
     private readonly NativeMenuItem _trayStartItem;
@@ -88,6 +89,10 @@ public partial class ScreenRecordWindow : Window, IDisposable
     private bool _showRecordingButtonLabels = true;
 
     public event Action? StopRequested;
+    public event Action? PauseRequested;
+    public event Action? ResumeRequested;
+    public bool UseInProcessPause { get; set; }
+    public bool ExcludeFromCapture { get; set; }
 
     public ScreenRecordingStatus Status
     {
@@ -182,10 +187,11 @@ public partial class ScreenRecordWindow : Window, IDisposable
     {
         _captureWidth = regionRectangle.Width;
         _captureHeight = regionRectangle.Height;
+        _initialPosition = new PixelPoint(regionRectangle.X - BorderPixels, regionRectangle.Y - BorderPixels);
 
         InitializeComponent();
         RequestedThemeVariant = ThemeManager.GetCurrentTheme();
-        Position = new PixelPoint(regionRectangle.X - BorderPixels, regionRectangle.Y - BorderPixels);
+        Position = _initialPosition;
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         _refreshTimer.Tick += (_, _) => UpdateTimer();
@@ -252,6 +258,7 @@ public partial class ScreenRecordWindow : Window, IDisposable
         else if (Status == ScreenRecordingStatus.Paused)
         {
             Status = ScreenRecordingStatus.Stopped;
+            if (UseInProcessPause) OnStopRequested();
             RecordResetEvent.Set();
         }
         else
@@ -266,7 +273,22 @@ public partial class ScreenRecordWindow : Window, IDisposable
         {
             Status = ScreenRecordingStatus.Paused;
             RecordResetEvent.Reset();
-            OnStopRequested();
+            if (UseInProcessPause)
+            {
+                PauseRequested?.Invoke();
+                StopRecordingTimer();
+                UpdateUI();
+            }
+            else OnStopRequested();
+        }
+        else if (Status == ScreenRecordingStatus.Paused && UseInProcessPause)
+        {
+            ResumeRequested?.Invoke();
+            Status = ScreenRecordingStatus.Recording;
+            Timer.Start();
+            _refreshTimer.Start();
+            UpdateTimer();
+            UpdateUI();
         }
         else
         {
@@ -289,7 +311,7 @@ public partial class ScreenRecordWindow : Window, IDisposable
             return;
         }
 
-        bool stopActiveRecording = Status == ScreenRecordingStatus.Recording;
+        bool stopActiveRecording = Status == ScreenRecordingStatus.Recording || (UseInProcessPause && Status == ScreenRecordingStatus.Paused);
 
         Interlocked.Exchange(ref _restartRequested, 1);
         Status = ScreenRecordingStatus.Waiting;
@@ -577,8 +599,9 @@ public partial class ScreenRecordWindow : Window, IDisposable
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        double scaling = GetScreenScaling(Position);
+        double scaling = GetScreenScaling(_initialPosition);
         ConfigureGeometry(scaling);
+        Helpers.EnsureWindowPosition(this, _initialPosition.X - _frameLeftPixels, _initialPosition.Y);
         ApplyToolWindowStyle();
         ApplyNativeWindowRegion();
         Dispatcher.UIThread.Post(ApplyNativeWindowRegion, DispatcherPriority.Loaded);
@@ -671,6 +694,10 @@ public partial class ScreenRecordWindow : Window, IDisposable
 
         WindowInfo info = new(handle);
         info.ExStyle |= WindowStyles.WS_EX_TOOLWINDOW;
+        if (ExcludeFromCapture && !NativeMethods.SetWindowDisplayAffinity(handle, 0x11)) // WDA_EXCLUDEFROMCAPTURE
+        {
+            DebugHelper.WriteLine("Could not exclude the recording controls from capture. Win32 error: {0}", Marshal.GetLastWin32Error());
+        }
     }
 
     private void ApplyNativeWindowRegion()

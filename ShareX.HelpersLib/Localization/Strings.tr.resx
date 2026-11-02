@@ -166,6 +166,15 @@
   <data name="ArrowHeadDirection_Start" xml:space="preserve">
     <value>Baş</value>
   </data>
+  <data name="BMPBitDepth_Automatic" xml:space="preserve">
+    <value>Otomatik olarak tespit et</value>
+  </data>
+  <data name="BMPBitDepth_Bit24" xml:space="preserve">
+    <value>24 bit</value>
+  </data>
+  <data name="BMPBitDepth_Bit32" xml:space="preserve">
+    <value>32 bit</value>
+  </data>
   <data name="BorderStyle_Dash" xml:space="preserve">
     <value>Tire</value>
   </data>
@@ -498,27 +507,6 @@ Yine de çalıştırmak istiyor musunuz?</value>
   <data name="ErrorWindow_Unexpected_error" xml:space="preserve">
     <value>Beklenmeyen bir hata oluştu.</value>
   </data>
-  <data name="Extensions_AddContextMenu_Copy" xml:space="preserve">
-    <value>Kopyala</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Cut" xml:space="preserve">
-    <value>Kes</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Delete" xml:space="preserve">
-    <value>Sil</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Paste" xml:space="preserve">
-    <value>Yapıştır</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Redo" xml:space="preserve">
-    <value>Yinele</value>
-  </data>
-  <data name="Extensions_AddContextMenu_SelectAll" xml:space="preserve">
-    <value>Tümünü seç</value>
-  </data>
-  <data name="Extensions_AddContextMenu_Undo" xml:space="preserve">
-    <value>Geri al</value>
-  </data>
   <data name="FFmpegCLIManager_Error_title" xml:space="preserve">
     <value>FFmpeg hatası</value>
   </data>
@@ -546,6 +534,9 @@ Yine de çalıştırmak istiyor musunuz?</value>
   <data name="FileHelpers_Rename_file_error" xml:space="preserve">
     <value>Dosya yeniden adlandırma hatası:</value>
   </data>
+  <data name="GIFQuality_Adaptive" xml:space="preserve">
+    <value>Uyarlanabilir niceleyici, 256 renk</value>
+  </data>
   <data name="GIFQuality_Bit4" xml:space="preserve">
     <value>16 renk (Daha düşük boyut fakat kötü kalite)</value>
   </data>
@@ -560,12 +551,6 @@ Yine de çalıştırmak istiyor musunuz?</value>
   </data>
   <data name="HSB_ToString_" xml:space="preserve">
     <value>Renk tonu: {0:0.0}°, Doygunluk: {1:0.0}%, Parlaklık: {2:0.0}%</value>
-  </data>
-  <data name="Helpers_BrowseFile_Choose_file" xml:space="preserve">
-    <value>Dosya seçiniz</value>
-  </data>
-  <data name="Helpers_BrowseFolder_Choose_folder" xml:space="preserve">
-    <value>Klasör seçiniz</value>
   </data>
   <data name="Helpers_CreateDirectoryIfNotExist_Create_failed_" xml:space="preserve">
     <value>Klasör yaratılamıyor, yol ayarlarını kontrol ediniz.</value>
@@ -767,6 +752,9 @@ Yine de çalıştırmak istiyor musunuz?</value>
   </data>
   <data name="HotkeyType_PauseScreenRecording" xml:space="preserve">
     <value>Ekran kaydını duraklat</value>
+  </data>
+  <data name="HotkeyType_PhotoEditor" xml:space="preserve">
+    <value>Fotoğraf düzenleyici</value>
   </data>
   <data name="HotkeyType_PinToScreen" xml:space="preserve">
     <value>Ekrana sabitle</value>

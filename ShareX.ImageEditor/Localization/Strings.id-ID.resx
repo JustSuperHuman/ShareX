@@ -1149,6 +1149,12 @@ Papan klip tidak berisi gambar.</value>
   <data name="EmojiPickerDialogView_TryDifferentKeyword" xml:space="preserve">
     <value>Coba kata kunci lain.</value>
   </data>
+  <data name="FontFamilyPickerDropdown_Nomatchingfonts" xml:space="preserve">
+    <value>Tidak ada font yang cocok</value>
+  </data>
+  <data name="FontFamilyPickerDropdown_SearchfontsEllipsis" xml:space="preserve">
+    <value>Cari font...</value>
+  </data>
   <data name="InsertImageDialogView_Below" xml:space="preserve">
     <value>Sisipkan gambar di bawah</value>
   </data>
@@ -1394,6 +1400,9 @@ Papan klip tidak berisi gambar.</value>
   </data>
   <data name="ToolbarCustomizationItemViewModel_Blur" xml:space="preserve">
     <value>Buram</value>
+  </data>
+  <data name="ToolbarCustomizationItemViewModel_Clone" xml:space="preserve">
+    <value>Klon</value>
   </data>
   <data name="ToolbarCustomizationItemViewModel_Crop" xml:space="preserve">
     <value>Pangkas</value>

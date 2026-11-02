@@ -243,6 +243,7 @@ namespace ShareX.ImageEditor.Presentation.Views
         {
             UpdateDpiScaleFromTopLevel();
             RequestOverlayCanvasLayoutUpdate();
+            UpdateEmojiPickerPosition();
         }
 
         /// <summary>
@@ -506,6 +507,11 @@ namespace ShareX.ImageEditor.Presentation.Views
                 _parentWindow.KeyDown += OnKeyDown;
                 _parentWindow.KeyUp += OnKeyUp;
                 _parentWindow.Activated += OnWindowActivated;
+                _parentWindow.PositionChanged += OnEditorWindowPositionChanged;
+                if (_parentWindow.Screens is { } screens)
+                {
+                    screens.Changed += OnEditorScreensChanged;
+                }
             }
 
             // Give the editor initial focus
@@ -623,22 +629,12 @@ namespace ShareX.ImageEditor.Presentation.Views
                 else if (e.PropertyName == nameof(MainViewModel.ActiveTool))
                 {
                     _editorCore.ActiveTool = vm.ActiveTool;
+                    _inputController.CancelClone();
+                    _inputController.CancelCrop();
 
                     if (vm.ActiveTool == EditorTool.Crop)
                     {
-                        if (vm.Options.QuickCrop)
-                        {
-                            _inputController.CancelCrop();
-                        }
-                        else
-                        {
-                            _inputController.ActivateCropToFullImage();
-                        }
                         this.Focus();
-                    }
-                    else
-                    {
-                        _inputController.CancelCrop();
                     }
                     _selectionController.ClearSelection();
                     UpdateCursorForTool(); // ISSUE-018 fix: Update cursor feedback for active tool
@@ -653,7 +649,7 @@ namespace ShareX.ImageEditor.Presentation.Views
                 else if (e.PropertyName == nameof(MainViewModel.ModalContent) &&
                     vm.ModalContent is EmojiPickerDialogViewModel)
                 {
-                    PositionModalOnCursorScreen();
+                    PositionEmojiPickerOnActiveMonitor();
                 }
                 else if (e.PropertyName == nameof(MainViewModel.IsModalOpen) && !vm.IsModalOpen)
                 {
@@ -1027,7 +1023,7 @@ namespace ShareX.ImageEditor.Presentation.Views
                 }
             }
 
-            if (_inputController.CancelCrop())
+            if (_inputController.CancelClone() || _inputController.CancelCrop())
             {
                 return true;
             }
@@ -1055,7 +1051,7 @@ namespace ShareX.ImageEditor.Presentation.Views
             DetachParentWindow();
             DetachViewModel();
             UnhookAnnotationToolbarEvents();
-            StopEasterEggs();
+            DisposeEasterEggs();
             _selectionController.RequestUpdateEffect -= OnRequestUpdateEffect;
             ClearEffectPreviewCache();
             this.FindControl<SpotlightOverlayControl>("SpotlightOverlayControl")?.Dispose();
@@ -1306,7 +1302,7 @@ namespace ShareX.ImageEditor.Presentation.Views
             _inputController.OnKeyDown(sender ?? this, e);
 
             // Skip shortcuts when the user is typing in a text field
-            if (_parentWindow?.FocusManager?.GetFocusedElement() is TextBox) return;
+            if (e.Source is TextBox || _parentWindow?.FocusManager?.GetFocusedElement() is TextBox) return;
 
             // Skip shortcuts when a modal dialog is open (e.g. emoji picker search box)
             if (DataContext is MainViewModel { IsModalOpen: true }) return;
@@ -1492,7 +1488,7 @@ namespace ShareX.ImageEditor.Presentation.Views
             }
 
             // Skip shortcuts when the user is typing in a text field
-            if (_parentWindow?.FocusManager?.GetFocusedElement() is TextBox) return;
+            if (e.Source is TextBox || _parentWindow?.FocusManager?.GetFocusedElement() is TextBox) return;
 
             if (e.Key is Key.LeftCtrl or Key.RightCtrl && !_inputController.IsDrawingActive)
             {
@@ -1504,7 +1500,7 @@ namespace ShareX.ImageEditor.Presentation.Views
                 switch (e.Key)
                 {
                     case Key.Escape:
-                        if (_inputController.CancelCrop())
+                        if (_inputController.CancelClone() || _inputController.CancelCrop())
                         {
                             e.Handled = true;
                         }
@@ -1549,6 +1545,7 @@ namespace ShareX.ImageEditor.Presentation.Views
 
         private void OnDeselectRequested(object? sender, EventArgs e)
         {
+            _inputController.CancelClone();
             _inputController.CancelCrop();
             _selectionController.ClearSelection();
         }
