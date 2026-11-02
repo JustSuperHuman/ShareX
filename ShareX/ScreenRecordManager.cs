@@ -109,7 +109,8 @@ namespace ShareX
         private static async Task StartRecording(ScreenRecordOutput outputType, TaskSettings taskSettings,
             ScreenRecordStartMethod startMethod = ScreenRecordStartMethod.Region, Rectangle? deviceFrameRegion = null)
         {
-            bool useNative = taskSettings.CaptureSettings.ScreenRecordUseNative;
+            // Device frame recordings use an FFmpeg motion track for phone tap effects.
+            bool useNative = !deviceFrameRegion.HasValue && taskSettings.CaptureSettings.ScreenRecordUseNative;
             bool isGif = outputType == ScreenRecordOutput.GIF;
             if (!useNative && isGif)
             {
@@ -554,7 +555,8 @@ namespace ShareX
         {
             bool hasRecording = !aborted && !string.IsNullOrEmpty(path) && File.Exists(path);
 
-            if (hasRecording && !skipQuickTaskMenu && taskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowQuickTaskMenu))
+            if (hasRecording && !skipQuickTaskMenu && (taskSettings.CaptureSettings.ScreenRecordShowQuickTaskMenu ||
+                taskSettings.AfterCaptureJob.HasFlag(AfterCaptureTasks.ShowQuickTaskMenu)))
             {
                 ScreenRecordingQuickTaskMenu quickTaskMenu = new ScreenRecordingQuickTaskMenu();
                 quickTaskMenu.ActionSelected += (selectedAction, preset) =>

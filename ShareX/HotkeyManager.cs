@@ -23,6 +23,7 @@
 
 #endregion License Information (GPL v3)
 
+using Avalonia.Threading;
 using ShareX.HelpersLib;
 using ShareX.Localization;
 using System;
@@ -46,6 +47,7 @@ namespace ShareX
         public HotkeysToggledEventHandler HotkeysToggledTrigger;
 
         private IHotkeyHost hotkeyHost;
+        private PrintScreenHotkeyGuard printScreenGuard;
 
         public HotkeyManager(IHotkeyHost host)
         {
@@ -69,6 +71,8 @@ namespace ShareX
 
         private void OnHostClosed(object sender, EventArgs e)
         {
+            printScreenGuard?.Dispose();
+            printScreenGuard = null;
             if (hotkeyHost != null && !hotkeyHost.IsDisposed)
             {
                 UnregisterAllHotkeys(false);
@@ -99,6 +103,7 @@ namespace ShareX
 
         public void RegisterHotkey(HotkeySettings hotkeySetting)
         {
+            UpdatePrintScreenGuard(hotkeySetting);
             if (!ApplicationState.Settings.DisableHotkeys || hotkeySetting.TaskSettings.Job == HotkeyType.DisableHotkeys)
             {
                 UnregisterHotkey(hotkeySetting, false);
@@ -125,6 +130,38 @@ namespace ShareX
             if (!Hotkeys.Contains(hotkeySetting))
             {
                 Hotkeys.Add(hotkeySetting);
+            }
+            UpdatePrintScreenGuard();
+        }
+
+        private void UpdatePrintScreenGuard(HotkeySettings registering = null)
+        {
+            bool hasPrintScreen = registering?.HotkeyInfo.KeyCode == InputKey.PrintScreen ||
+                Hotkeys?.Any(x => x.HotkeyInfo.KeyCode == InputKey.PrintScreen) == true;
+            if (OperatingSystem.IsWindows() && !StartupOptions.Sandbox &&
+                !ApplicationState.Settings.DisableHotkeys && hasPrintScreen)
+            {
+                if (printScreenGuard != null) return;
+                try
+                {
+                    printScreenGuard = new PrintScreenHotkeyGuard(() => Dispatcher.UIThread.Post(() =>
+                    {
+                        if (printScreenGuard == null || hotkeyHost.IsDisposed || ApplicationState.Settings.DisableHotkeys) return;
+                        foreach (HotkeySettings hotkey in Hotkeys.Where(x => x.HotkeyInfo.KeyCode == InputKey.PrintScreen).ToArray())
+                        {
+                            RegisterHotkey(hotkey);
+                        }
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    DebugHelper.WriteException(ex, "Unable to protect the Print Screen hotkey.");
+                }
+            }
+            else
+            {
+                printScreenGuard?.Dispose();
+                printScreenGuard = null;
             }
         }
 
@@ -163,6 +200,7 @@ namespace ShareX
             if (removeFromList)
             {
                 Hotkeys.Remove(hotkeySetting);
+                UpdatePrintScreenGuard();
             }
         }
 
@@ -178,6 +216,8 @@ namespace ShareX
                     }
                 }
             }
+            printScreenGuard?.Dispose();
+            printScreenGuard = null;
         }
 
         public void ToggleHotkeys(bool hotkeysDisabled)

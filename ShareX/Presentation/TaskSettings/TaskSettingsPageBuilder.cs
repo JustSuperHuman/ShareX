@@ -599,6 +599,7 @@ internal sealed class TaskSettingsPageBuilder
                 Button(Strings.TaskSettingsWindow_MouseHighlighterOptions, () => _window.NavigateToPage("tools-mouse-highlighter")),
                 Check(Strings.TaskSettingsWindow_ShowRecordingTimer, () => capture.ScreenRecordShowTimer, value => capture.ScreenRecordShowTimer = value),
                 Check(Strings.TaskSettingsWindow_ShowRecordingButtonLabels, () => capture.ScreenRecordShowButtonLabels, value => capture.ScreenRecordShowButtonLabels = value),
+                Check(AfterCaptureTasks.ShowQuickTaskMenu.GetLocalizedDescription(), () => capture.ScreenRecordShowQuickTaskMenu, value => capture.ScreenRecordShowQuickTaskMenu = value),
                 Check(Strings.TaskSettingsWindow_CopyRecordingFilePathToClipboard, () => capture.ScreenRecordCopyFilePathToClipboard, value => capture.ScreenRecordCopyFilePathToClipboard = value),
                 Check(Strings.TaskSettingsWindow_OpenRecordingFolderOnNotificationClick, () => capture.ScreenRecordOpenFolderOnNotificationClick, value => capture.ScreenRecordOpenFolderOnNotificationClick = value),
                 Check(Strings.TaskSettingsWindow_UseStartDelay, startDelayEnabled), Row(Strings.TaskSettingsWindow_StartDelaySeconds, startDelay),
